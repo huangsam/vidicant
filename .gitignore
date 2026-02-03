@@ -1,0 +1,10 @@
+.idea/
+.cache/
+.vscode/
+CMakeFiles/
+build/
+cmake-build*/
+.DS_Store
+Makefile
+*.txt
+!CMakeLists.txt
