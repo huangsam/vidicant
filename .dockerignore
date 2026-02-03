@@ -1,0 +1,35 @@
+# --- Version Control ---
+.git
+.gitignore
+
+# --- C++ Build Artifacts ---
+# Ignore the build folder entirely (cmake will recreate it inside the container)
+build/
+bin/
+obj/
+*.o
+*.a
+*.so
+*.dylib
+*.exe
+
+# --- IDE & OS Trash ---
+.vscode/
+.idea/
+.DS_Store
+*.swp
+*.swo
+
+# --- Media & Logs (Don't send heavy test files during build) ---
+*.log
+captures/
+tmp/
+# Only ignore large test videos if you don't need them during the Docker BUILD phase
+# (You'll likely mount them later via a volume instead)
+tests/data/*.mp4
+tests/data/*.mkv
+
+# --- Docker ---
+.devcontainer/
+Dockerfile
+.dockerignore
