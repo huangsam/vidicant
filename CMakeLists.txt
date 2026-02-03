@@ -14,8 +14,13 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 include_directories(include)
 
+find_package(OpenCV REQUIRED)
+include_directories(${OpenCV_INCLUDE_DIRS})
+
 set(SOURCES
     src/hello.cpp
+    src/image.cpp
 )
 
 add_executable(vidicant_cli src/main.cpp ${SOURCES})
+target_link_libraries(vidicant_cli ${OpenCV_LIBS})
