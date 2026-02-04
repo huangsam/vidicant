@@ -14,6 +14,7 @@
 #include <opencv2/core.hpp>
 #include <string>
 #include <vector>
+#include <nlohmann/json.hpp>
 
 bool isImageFile(const std::string &filename) {
   std::filesystem::path path(filename);
@@ -37,99 +38,114 @@ bool isVideoFile(const std::string &filename) {
 }
 
 // Function to process an image file
-void processImage(const std::string &filename) {
-  std::cout << "\n--- Processing Image: " << filename << " ---\n";
+nlohmann::json processImage(const std::string &filename) {
+  nlohmann::json result;
+  result["filename"] = filename;
 
   // Get image dimensions
   auto [width, height] = vidicant::getImageDimensions(filename);
   if (width == -1) {
-    std::cout << "Failed to load image: " << filename << std::endl;
-    return;
+    result["error"] = "Failed to load image";
+    return result;
   }
 
-  std::cout << "Image width: " << width << std::endl;
-  std::cout << "Image height: " << height << std::endl;
+  result["width"] = width;
+  result["height"] = height;
 
   // Additional analyses
   bool grayscale = vidicant::isImageGrayscale(filename);
-  std::cout << "Is grayscale: " << (grayscale ? "Yes" : "No") << std::endl;
+  result["is_grayscale"] = grayscale;
 
   double brightness = vidicant::getImageAverageBrightness(filename);
-  std::cout << "Average brightness: " << brightness << std::endl;
+  result["average_brightness"] = brightness;
 
   int channels = vidicant::getImageNumberOfChannels(filename);
-  std::cout << "Number of channels: " << channels << std::endl;
+  result["channels"] = channels;
 
   int edgeCount = vidicant::getImageEdgeCount(filename);
-  std::cout << "Edge count: " << edgeCount << std::endl;
+  result["edge_count"] = edgeCount;
 
   auto dominantColors = vidicant::getImageDominantColors(filename, 3);
-  std::cout << "Dominant colors (RGB):" << std::endl;
+  result["dominant_colors"] = nlohmann::json::array();
   for (size_t i = 0; i < dominantColors.size(); ++i) {
-    std::cout << "  Color " << (i + 1) << ": (" << dominantColors[i][0] << ", "
-              << dominantColors[i][1] << ", " << dominantColors[i][2] << ")"
-              << std::endl;
+    result["dominant_colors"].push_back({
+        dominantColors[i][0],
+        dominantColors[i][1],
+        dominantColors[i][2]
+    });
   }
 
   double blurScore = vidicant::getImageBlurScore(filename);
-  std::cout << "Blur score (variance): " << blurScore << std::endl;
+  result["blur_score"] = blurScore;
+
+  return result;
 }
 
 // Function to process a video file
-void processVideo(const std::string &filename) {
-  std::cout << "\n--- Processing Video: " << filename << " ---\n";
+nlohmann::json processVideo(const std::string &filename) {
+  nlohmann::json result;
+  result["filename"] = filename;
 
   int frameCount = vidicant::getVideoFrameCount(filename);
   if (frameCount == -1) {
-    std::cout << "Failed to load video: " << filename << std::endl;
-    return;
+    result["error"] = "Failed to load video";
+    return result;
   }
 
-  std::cout << "Video frame count: " << frameCount << std::endl;
+  result["frame_count"] = frameCount;
 
   double fps = vidicant::getVideoFPS(filename);
-  std::cout << "Video FPS: " << fps << std::endl;
+  result["fps"] = fps;
 
   auto [vWidth, vHeight] = vidicant::getVideoResolution(filename);
-  std::cout << "Video resolution: " << vWidth << "x" << vHeight << std::endl;
+  result["width"] = vWidth;
+  result["height"] = vHeight;
 
   double duration = vidicant::getVideoDuration(filename);
-  std::cout << "Video duration: " << duration << " seconds" << std::endl;
+  result["duration_seconds"] = duration;
 
   // Advanced video processing
   cv::Mat firstFrame = vidicant::extractFirstFrame(filename);
   if (!firstFrame.empty()) {
-    std::cout << "First frame extracted: " << firstFrame.cols << "x"
-              << firstFrame.rows << ", channels: " << firstFrame.channels()
-              << std::endl;
+    result["first_frame_extracted"] = true;
+    result["first_frame_info"] = {
+        {"width", firstFrame.cols},
+        {"height", firstFrame.rows},
+        {"channels", firstFrame.channels()}
+    };
   } else {
-    std::cout << "Failed to extract first frame" << std::endl;
+    result["first_frame_extracted"] = false;
   }
 
   double videoBrightness = vidicant::getVideoAverageBrightness(filename);
-  std::cout << "Video average brightness: " << videoBrightness << std::endl;
+  result["average_brightness"] = videoBrightness;
 
   bool videoGrayscale = vidicant::isVideoGrayscale(filename);
-  std::cout << "Is video grayscale: " << (videoGrayscale ? "Yes" : "No")
-            << std::endl;
+  result["is_grayscale"] = videoGrayscale;
 
   // Save first frame as image
   std::filesystem::path videoPath(filename);
   std::string imageOutput = videoPath.stem().string() + "_first_frame.jpg";
   bool saved = vidicant::saveFirstFrameAsImage(filename, imageOutput);
-  std::cout << "Saved first frame as image: " << (saved ? "Yes" : "No")
-            << std::endl;
+  result["first_frame_saved"] = saved;
+  if (saved) {
+    result["first_frame_path"] = imageOutput;
+  }
 
   // Motion score
   double motionScore = vidicant::getVideoMotionScore(filename);
-  std::cout << "Video motion score: " << motionScore << std::endl;
+  result["motion_score"] = motionScore;
 
   // Dominant colors from video
   auto videoColors = vidicant::getVideoDominantColors(filename);
-  std::cout << "Video dominant colors (RGB):" << std::endl;
+  result["dominant_colors"] = nlohmann::json::array();
   for (size_t i = 0; i < videoColors.size(); ++i) {
-    std::cout << "  Color " << (i + 1) << ": (" << videoColors[i][0] << ", "
-              << videoColors[i][1] << ", " << videoColors[i][2] << ")"
-              << std::endl;
+    result["dominant_colors"].push_back({
+        videoColors[i][0],
+        videoColors[i][1],
+        videoColors[i][2]
+    });
   }
+
+  return result;
 }

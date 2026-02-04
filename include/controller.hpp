@@ -9,6 +9,7 @@
 #define CONTROLLER_HPP
 
 #include <string>
+#include <nlohmann/json.hpp>
 
 // Function to determine if a file is an image based on extension
 bool isImageFile(const std::string &filename);
@@ -16,10 +17,10 @@ bool isImageFile(const std::string &filename);
 // Function to determine if a file is a video based on extension
 bool isVideoFile(const std::string &filename);
 
-// Function to process an image file
-void processImage(const std::string &filename);
+// Function to process an image file and return JSON result
+nlohmann::json processImage(const std::string &filename);
 
-// Function to process a video file
-void processVideo(const std::string &filename);
+// Function to process a video file and return JSON result
+nlohmann::json processVideo(const std::string &filename);
 
 #endif // CONTROLLER_HPP

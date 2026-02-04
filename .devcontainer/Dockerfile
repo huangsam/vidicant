@@ -16,4 +16,5 @@ RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
     googletest \
     google-mock \
     clang-format \
+    nlohmann-json3-dev \
     && apt-get clean && rm -rf /var/lib/apt/lists/*

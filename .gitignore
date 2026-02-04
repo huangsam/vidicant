@@ -1,6 +1,5 @@
 .idea/
 .cache/
-.vscode/
 CMakeFiles/
 build/
 cmake-build*/
@@ -8,4 +7,6 @@ cmake-build*/
 Makefile
 *.txt
 !CMakeLists.txt
+*.json
+!c_cpp_properties.json
 sample_first_frame.jpg
