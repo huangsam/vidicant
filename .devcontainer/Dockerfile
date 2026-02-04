@@ -8,13 +8,13 @@ RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
     cmake \
     g++ \
     gdb \
+    clang-format \
     libopencv-dev \
     libtesseract-dev \
     libavcodec-dev \
     libavformat-dev \
     libswscale-dev \
-    googletest \
-    google-mock \
-    clang-format \
+    libgtest-dev \
+    libgmock-dev \
     nlohmann-json3-dev \
     && apt-get clean && rm -rf /var/lib/apt/lists/*

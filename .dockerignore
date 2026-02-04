@@ -33,3 +33,4 @@ tests/data/*.mkv
 .devcontainer/
 Dockerfile
 .dockerignore
+build/
