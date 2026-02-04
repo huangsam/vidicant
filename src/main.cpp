@@ -10,7 +10,7 @@ int main() {
   greeter.greet();
 
   // Get image dimensions
-  auto [width, height] = vidicant::getImageDimensions("./image.jpg");
+  auto [width, height] = vidicant::getImageDimensions("examples/sample.jpg");
   if (width == -1) {
     return -1;
   }
