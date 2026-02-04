@@ -6,30 +6,31 @@ project(
   LANGUAGES CXX
 )
 
-# 1. Standard and Compile Commands
+# Define C++ standard and export compile commands
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# 2. Dependencies
+# Find dependencies
 find_package(OpenCV REQUIRED)
 find_package(GTest REQUIRED)
 
-# 3. Library
+# Define library target
 add_library(vidicant_lib 
   src/hello.cpp
   src/image.cpp
 )
 
+# Include directories and link libraries
 target_include_directories(vidicant_lib PRIVATE include)
 target_link_libraries(vidicant_lib PRIVATE ${OpenCV_LIBS})
 
-# 4. Executable
+# Add executable target for CLI
 add_executable(vidicant_cli src/main.cpp)
 target_include_directories(vidicant_cli PRIVATE include)
 target_link_libraries(vidicant_cli PRIVATE vidicant_lib)
 
-# 5. Target-Specific Settings (The Modern Way)
+# Apply target-specific compile options
 target_compile_options(vidicant_cli PRIVATE 
   -Wall 
   -Wextra 
@@ -38,6 +39,6 @@ target_compile_options(vidicant_cli PRIVATE
   -Werror
 )
 
-# 6. Testing
+# Enable testing and add test subdirectory
 enable_testing()
 add_subdirectory(test)
