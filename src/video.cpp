@@ -4,110 +4,105 @@
 #include <iostream>
 #include <vector>
 
-namespace vidicant {
-
-int getVideoFrameCount(const std::string &filename) {
-    cv::VideoCapture cap(filename);
-    if (!cap.isOpened()) {
-        std::cerr << "Could not open video: " << filename << std::endl;
-        return -1;
-    }
-    return static_cast<int>(cap.get(cv::CAP_PROP_FRAME_COUNT));
+bool OpenCVVideoLoader::open(const std::string& filename) {
+    cap_.open(filename, cv::CAP_FFMPEG);
+    return cap_.isOpened();
 }
 
-double getVideoFPS(const std::string &filename) {
-    cv::VideoCapture cap(filename);
-    if (!cap.isOpened()) {
-        std::cerr << "Could not open video: " << filename << std::endl;
-        return -1.0;
-    }
-    return cap.get(cv::CAP_PROP_FPS);
+int OpenCVVideoLoader::getFrameCount() {
+    return static_cast<int>(cap_.get(cv::CAP_PROP_FRAME_COUNT));
 }
 
-std::pair<int, int> getVideoResolution(const std::string &filename) {
-    cv::VideoCapture cap(filename);
-    if (!cap.isOpened()) {
-        std::cerr << "Could not open video: " << filename << std::endl;
-        return {-1, -1};
-    }
-    int width = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_WIDTH));
-    int height = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_HEIGHT));
+double OpenCVVideoLoader::getFPS() {
+    return cap_.get(cv::CAP_PROP_FPS);
+}
+
+std::pair<int, int> OpenCVVideoLoader::getResolution() {
+    int width = static_cast<int>(cap_.get(cv::CAP_PROP_FRAME_WIDTH));
+    int height = static_cast<int>(cap_.get(cv::CAP_PROP_FRAME_HEIGHT));
     return {width, height};
 }
 
-double getVideoDuration(const std::string &filename) {
-    cv::VideoCapture cap(filename);
-    if (!cap.isOpened()) {
-        std::cerr << "Could not open video: " << filename << std::endl;
-        return -1.0;
-    }
-    int frameCount = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_COUNT));
-    double fps = cap.get(cv::CAP_PROP_FPS);
+cv::Mat OpenCVVideoLoader::readFrame() {
+    cv::Mat frame;
+    cap_ >> frame;
+    return frame;
+}
+
+VideoHandler::VideoHandler(std::unique_ptr<IVideoLoader> loader) : loader_(std::move(loader)) {}
+
+bool VideoHandler::open(const std::string& filename) {
+    filename_ = filename;
+    return loader_->open(filename);
+}
+
+int VideoHandler::getFrameCount() {
+    return loader_->getFrameCount();
+}
+
+double VideoHandler::getFPS() {
+    return loader_->getFPS();
+}
+
+std::pair<int, int> VideoHandler::getResolution() {
+    return loader_->getResolution();
+}
+
+double VideoHandler::getDuration() {
+    int frameCount = loader_->getFrameCount();
+    double fps = loader_->getFPS();
     if (fps <= 0) return -1.0;
     return frameCount / fps;
 }
 
-cv::Mat extractFirstFrame(const std::string &filename) {
-    cv::VideoCapture cap(filename);
-    if (!cap.isOpened()) {
-        std::cerr << "Could not open video: " << filename << std::endl;
-        return cv::Mat();
-    }
-    cv::Mat frame;
-    cap >> frame;  // Read first frame
-    return frame;
+cv::Mat VideoHandler::extractFirstFrame() {
+    // Create a temporary loader to read the first frame
+    auto tempLoader = std::make_unique<OpenCVVideoLoader>();
+    if (!tempLoader->open(filename_)) return cv::Mat();
+    return tempLoader->readFrame();
 }
 
-double getVideoAverageBrightness(const std::string &filename) {
-    cv::VideoCapture cap(filename);
-    if (!cap.isOpened()) {
-        std::cerr << "Could not open video: " << filename << std::endl;
-        return -1.0;
-    }
+double VideoHandler::getAverageBrightness() {
+    auto tempLoader = std::make_unique<OpenCVVideoLoader>();
+    if (!tempLoader->open(filename_)) return -1.0;
     cv::Mat frame;
     double totalBrightness = 0.0;
     int frameCount = 0;
-    while (cap.read(frame)) {
+    frame = tempLoader->readFrame();
+    while (!frame.empty()) {
         cv::Scalar mean = cv::mean(frame);
         double brightness = (frame.channels() == 1) ? mean[0] : (mean[0] + mean[1] + mean[2]) / 3.0;
         totalBrightness += brightness;
         frameCount++;
         if (frameCount > 100) break;  // Limit to first 100 frames for speed
+        frame = tempLoader->readFrame();
     }
     return frameCount > 0 ? totalBrightness / frameCount : -1.0;
 }
 
-bool isVideoGrayscale(const std::string &filename) {
-    cv::VideoCapture cap(filename);
-    if (!cap.isOpened()) {
-        std::cerr << "Could not open video: " << filename << std::endl;
-        return false;
-    }
-    cv::Mat frame;
-    cap >> frame;  // Check first frame
+bool VideoHandler::isGrayscale() {
+    cv::Mat frame = extractFirstFrame();
     return frame.channels() == 1;
 }
 
-bool saveFirstFrameAsImage(const std::string &videoPath, const std::string &imagePath) {
-    cv::Mat frame = extractFirstFrame(videoPath);
+bool VideoHandler::saveFirstFrameAsImage(const std::string& imagePath) {
+    cv::Mat frame = extractFirstFrame();
     if (frame.empty()) return false;
     return cv::imwrite(imagePath, frame);
 }
 
-double getVideoMotionScore(const std::string &filename) {
-    cv::VideoCapture cap(filename);
-    if (!cap.isOpened()) {
-        std::cerr << "Could not open video: " << filename << std::endl;
-        return -1.0;
-    }
+double VideoHandler::getMotionScore() {
+    auto tempLoader = std::make_unique<OpenCVVideoLoader>();
+    if (!tempLoader->open(filename_)) return -1.0;
     cv::Mat prevFrame, currFrame;
-    cap >> prevFrame;
+    prevFrame = tempLoader->readFrame();
     if (prevFrame.empty()) return 0.0;
     cv::cvtColor(prevFrame, prevFrame, cv::COLOR_BGR2GRAY);
 
     double totalMotion = 0.0;
     int frameCount = 1;
-    while (cap.read(currFrame) && frameCount < 50) {  // Limit to 50 frames
+    currFrame = tempLoader->readFrame();
+    while (!currFrame.empty() && frameCount < 50) {  // Limit to 50 frames
         cv::Mat grayCurr;
         cv::cvtColor(currFrame, grayCurr, cv::COLOR_BGR2GRAY);
         cv::Mat diff;
@@ -116,22 +111,22 @@ double getVideoMotionScore(const std::string &filename) {
         totalMotion += meanDiff[0];
         prevFrame = grayCurr;
         frameCount++;
+        currFrame = tempLoader->readFrame();
     }
     return frameCount > 1 ? totalMotion / (frameCount - 1) : 0.0;
 }
 
-std::vector<std::array<double, 3>> getVideoDominantColors(const std::string &filename) {
-    cv::VideoCapture cap(filename);
-    if (!cap.isOpened()) {
-        std::cerr << "Could not open video: " << filename << std::endl;
-        return {};
-    }
+std::vector<std::array<double, 3>> VideoHandler::getDominantColors() {
+    auto tempLoader = std::make_unique<OpenCVVideoLoader>();
+    if (!tempLoader->open(filename_)) return {};
     std::vector<cv::Mat> frames;
     cv::Mat frame;
     int count = 0;
-    while (cap.read(frame) && count < 10) {  // Sample first 10 frames
+    frame = tempLoader->readFrame();
+    while (!frame.empty() && count < 10) {  // Sample first 10 frames
         frames.push_back(frame.clone());
         count++;
+        frame = tempLoader->readFrame();
     }
     if (frames.empty()) return {};
 
@@ -157,6 +152,67 @@ std::vector<std::array<double, 3>> getVideoDominantColors(const std::string &fil
         dominantColors.push_back({centers.at<float>(i, 0), centers.at<float>(i, 1), centers.at<float>(i, 2)});
     }
     return dominantColors;
+}
+
+namespace vidicant {
+int getVideoFrameCount(const std::string &filename) {
+    VideoHandler handler(std::make_unique<OpenCVVideoLoader>());
+    if (!handler.open(filename)) return -1;
+    return handler.getFrameCount();
+}
+
+double getVideoFPS(const std::string &filename) {
+    VideoHandler handler(std::make_unique<OpenCVVideoLoader>());
+    if (!handler.open(filename)) return -1.0;
+    return handler.getFPS();
+}
+
+std::pair<int, int> getVideoResolution(const std::string &filename) {
+    VideoHandler handler(std::make_unique<OpenCVVideoLoader>());
+    if (!handler.open(filename)) return {-1, -1};
+    return handler.getResolution();
+}
+
+double getVideoDuration(const std::string &filename) {
+    VideoHandler handler(std::make_unique<OpenCVVideoLoader>());
+    if (!handler.open(filename)) return -1.0;
+    return handler.getDuration();
+}
+
+cv::Mat extractFirstFrame(const std::string &filename) {
+    VideoHandler handler(std::make_unique<OpenCVVideoLoader>());
+    if (!handler.open(filename)) return cv::Mat();
+    return handler.extractFirstFrame();
+}
+
+double getVideoAverageBrightness(const std::string &filename) {
+    VideoHandler handler(std::make_unique<OpenCVVideoLoader>());
+    if (!handler.open(filename)) return -1.0;
+    return handler.getAverageBrightness();
+}
+
+bool isVideoGrayscale(const std::string &filename) {
+    VideoHandler handler(std::make_unique<OpenCVVideoLoader>());
+    if (!handler.open(filename)) return false;
+    return handler.isGrayscale();
+}
+
+bool saveFirstFrameAsImage(const std::string &videoPath, const std::string &imagePath) {
+    VideoHandler handler(std::make_unique<OpenCVVideoLoader>());
+    if (!handler.open(videoPath)) return false;
+    return handler.saveFirstFrameAsImage(imagePath);
+}
+
+double getVideoMotionScore(const std::string &filename) {
+    VideoHandler handler(std::make_unique<OpenCVVideoLoader>());
+    if (!handler.open(filename)) return -1.0;
+    return handler.getMotionScore();
+}
+
+std::vector<std::array<double, 3>> getVideoDominantColors(const std::string &filename) {
+    VideoHandler handler(std::make_unique<OpenCVVideoLoader>());
+    if (!handler.open(filename)) return {};
+    return handler.getDominantColors();
 }
 
 } // namespace vidicant

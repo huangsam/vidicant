@@ -43,7 +43,11 @@ int ImageHandler::getEdgeCount(const std::string &filename) {
   cv::Mat image = loader_->imread(filename);
   if (image.empty()) return -1;
   cv::Mat gray, edges;
-  cv::cvtColor(image, gray, cv::COLOR_BGR2GRAY);
+  if (image.channels() == 1) {
+    gray = image;
+  } else {
+    cv::cvtColor(image, gray, cv::COLOR_BGR2GRAY);
+  }
   cv::Canny(gray, edges, 100, 200);
   return cv::countNonZero(edges);
 }
@@ -70,7 +74,11 @@ double ImageHandler::getBlurScore(const std::string &filename) {
   cv::Mat image = loader_->imread(filename);
   if (image.empty()) return -1.0;
   cv::Mat gray, laplacian;
-  cv::cvtColor(image, gray, cv::COLOR_BGR2GRAY);
+  if (image.channels() == 1) {
+    gray = image;
+  } else {
+    cv::cvtColor(image, gray, cv::COLOR_BGR2GRAY);
+  }
   cv::Laplacian(gray, laplacian, CV_64F);
   cv::Scalar mean, stddev;
   cv::meanStdDev(laplacian, mean, stddev);
