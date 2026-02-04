@@ -59,6 +59,18 @@ This project demonstrates equivalent functionality to Apple's media processing f
 | **Cost** | Free (Apple ecosystem) | Free (open-source) |
 | **Customization** | Limited by Apple APIs | Fully extensible |
 | **Distribution** | App Store only | Any platform |
+| **Code Density** | More verbose, easier to read | More concise, higher density |
+
+### Development Experience Insights
+
+Based on the development process, OpenCV demonstrated several advantages over Apple's Xcode APIs:
+
+- **Code Efficiency**: OpenCV required significantly fewer lines of code while achieving the same functionality
+- **API Design**: OpenCV's C++ APIs are more concise and powerful, though less readable than Swift
+- **Performance**: Direct access to optimized computer vision algorithms without framework overhead
+- **Flexibility**: Open-source nature allows for deeper customization and integration
+
+While Swift provides excellent readability and safety features, the C++/OpenCV combination proved more efficient for implementing complex computer vision tasks with less boilerplate code.
 
 ## Development Process
 
