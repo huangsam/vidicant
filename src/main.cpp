@@ -21,5 +21,20 @@ int main() {
   int channels = vidicant::getImageNumberOfChannels("../examples/sample.jpg");
   std::cout << "Number of channels: " << channels << std::endl;
 
+  int edgeCount = vidicant::getImageEdgeCount("../examples/sample.jpg");
+  std::cout << "Edge count: " << edgeCount << std::endl;
+
+  auto dominantColors = vidicant::getImageDominantColors("../examples/sample.jpg", 3);
+  std::cout << "Dominant colors (RGB):" << std::endl;
+  for (size_t i = 0; i < dominantColors.size(); ++i) {
+    std::cout << "  Color " << (i + 1) << ": (" 
+              << dominantColors[i][0] << ", " 
+              << dominantColors[i][1] << ", " 
+              << dominantColors[i][2] << ")" << std::endl;
+  }
+
+  double blurScore = vidicant::getImageBlurScore("../examples/sample.jpg");
+  std::cout << "Blur score (variance): " << blurScore << std::endl;
+
   return 0;
 }
