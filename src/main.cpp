@@ -8,14 +8,18 @@
 
 int main(int argc, char *argv[]) {
   if (argc < 2) {
-    std::cout << "Usage: " << argv[0] << " <file1> [file2] [file3] ... [--output <output.json>]" << std::endl;
+    std::cout << "Usage: " << argv[0]
+              << " <file1> [file2] [file3] ... [--output <output.json>]"
+              << std::endl;
     std::cout
         << "Supported image formats: jpg, jpeg, png, bmp, tiff, tif, gif, webp"
         << std::endl;
     std::cout
         << "Supported video formats: mp4, avi, mov, mkv, wmv, flv, webm, m4v"
         << std::endl;
-    std::cout << "Use --output to specify output JSON file (default: results.json)" << std::endl;
+    std::cout
+        << "Use --output to specify output JSON file (default: results.json)"
+        << std::endl;
     return 1;
   }
 
@@ -36,7 +40,7 @@ int main(int argc, char *argv[]) {
   results["images"] = nlohmann::json::array();
   results["videos"] = nlohmann::json::array();
 
-  for (const auto& filename : inputFiles) {
+  for (const auto &filename : inputFiles) {
     if (!std::filesystem::exists(filename)) {
       std::cout << "File does not exist: " << filename << std::endl;
       continue;
@@ -62,7 +66,8 @@ int main(int argc, char *argv[]) {
     output.close();
     std::cout << "Results written to: " << outputFile << std::endl;
   } else {
-    std::cerr << "Error: Could not open output file: " << outputFile << std::endl;
+    std::cerr << "Error: Could not open output file: " << outputFile
+              << std::endl;
     return 1;
   }
 

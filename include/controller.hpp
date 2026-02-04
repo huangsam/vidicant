@@ -8,8 +8,8 @@
 #ifndef CONTROLLER_HPP
 #define CONTROLLER_HPP
 
-#include <string>
 #include <nlohmann/json.hpp>
+#include <string>
 
 // Function to determine if a file is an image based on extension
 bool isImageFile(const std::string &filename);

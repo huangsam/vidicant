@@ -11,10 +11,10 @@
 #include <algorithm>
 #include <filesystem>
 #include <iostream>
+#include <nlohmann/json.hpp>
 #include <opencv2/core.hpp>
 #include <string>
 #include <vector>
-#include <nlohmann/json.hpp>
 
 bool isImageFile(const std::string &filename) {
   std::filesystem::path path(filename);
@@ -68,11 +68,8 @@ nlohmann::json processImage(const std::string &filename) {
   auto dominantColors = vidicant::getImageDominantColors(filename, 3);
   result["dominant_colors"] = nlohmann::json::array();
   for (size_t i = 0; i < dominantColors.size(); ++i) {
-    result["dominant_colors"].push_back({
-        dominantColors[i][0],
-        dominantColors[i][1],
-        dominantColors[i][2]
-    });
+    result["dominant_colors"].push_back(
+        {dominantColors[i][0], dominantColors[i][1], dominantColors[i][2]});
   }
 
   double blurScore = vidicant::getImageBlurScore(filename);
@@ -108,11 +105,9 @@ nlohmann::json processVideo(const std::string &filename) {
   cv::Mat firstFrame = vidicant::extractFirstFrame(filename);
   if (!firstFrame.empty()) {
     result["first_frame_extracted"] = true;
-    result["first_frame_info"] = {
-        {"width", firstFrame.cols},
-        {"height", firstFrame.rows},
-        {"channels", firstFrame.channels()}
-    };
+    result["first_frame_info"] = {{"width", firstFrame.cols},
+                                  {"height", firstFrame.rows},
+                                  {"channels", firstFrame.channels()}};
   } else {
     result["first_frame_extracted"] = false;
   }
@@ -140,11 +135,8 @@ nlohmann::json processVideo(const std::string &filename) {
   auto videoColors = vidicant::getVideoDominantColors(filename);
   result["dominant_colors"] = nlohmann::json::array();
   for (size_t i = 0; i < videoColors.size(); ++i) {
-    result["dominant_colors"].push_back({
-        videoColors[i][0],
-        videoColors[i][1],
-        videoColors[i][2]
-    });
+    result["dominant_colors"].push_back(
+        {videoColors[i][0], videoColors[i][1], videoColors[i][2]});
   }
 
   return result;
