@@ -11,43 +11,20 @@ Vidicant was developed as a demonstration project to showcase cross-platform med
 This project demonstrates equivalent functionality to Apple's media processing frameworks:
 
 ### Apple's Frameworks
-- **Vision Framework**: Advanced computer vision for iOS/macOS
-  - Face detection and recognition
-  - Object detection and classification
-  - Text detection (OCR)
-  - Image analysis and feature extraction
-
-- **AVFoundation**: Multimedia framework for iOS/macOS
-  - Video playback and recording
-  - Audio processing
-  - Media asset management
-  - Real-time video processing
-
-- **Core Image**: GPU-accelerated image processing
-  - Image filters and effects
-  - Real-time image processing
-  - Custom filter development
+- **Vision Framework**: Computer vision for iOS/macOS (face/object detection, OCR, image analysis)
+- **AVFoundation**: Multimedia framework (video/audio processing, asset management)
+- **Core Image**: GPU-accelerated image processing (filters, effects)
 
 ### Vidicant's Equivalent Features
 
-**Image Analysis (Vision Framework equivalent):**
-- ✅ Dimensions and metadata extraction
-- ✅ Color analysis (brightness, channels, dominant colors)
-- ✅ Edge detection and feature extraction
-- ✅ Blur/sharpness analysis
-- ✅ Grayscale detection
+**Image Analysis (Vision equivalent):**
+- Dimensions, color analysis, edge detection, blur/sharpness, grayscale detection
 
 **Video Analysis (AVFoundation equivalent):**
-- ✅ Video metadata (frame count, FPS, resolution, duration)
-- ✅ Frame extraction and thumbnail generation
-- ✅ Motion analysis and scoring
-- ✅ Multi-frame brightness analysis
-- ✅ Video format handling
+- Metadata, frame extraction, motion analysis, brightness, format handling
 
 **Processing Architecture (Core Image equivalent):**
-- ✅ Efficient OpenCV-based processing
-- ✅ Extensible interface design
-- ✅ Cross-platform compatibility
+- OpenCV-based processing, extensible design, cross-platform
 
 ## Key Differences
 
@@ -63,14 +40,7 @@ This project demonstrates equivalent functionality to Apple's media processing f
 
 ### Development Experience Insights
 
-Based on the development process, OpenCV demonstrated several advantages over Apple's Xcode APIs:
-
-- **Code Efficiency**: OpenCV required significantly fewer lines of code while achieving the same functionality
-- **API Design**: OpenCV's C++ APIs are more concise and powerful, though less readable than Swift
-- **Performance**: Direct access to optimized computer vision algorithms without framework overhead
-- **Flexibility**: Open-source nature allows for deeper customization and integration
-
-While Swift provides excellent readability and safety features, the C++/OpenCV combination proved more efficient for implementing complex computer vision tasks with less boilerplate code.
+OpenCV proved more efficient than Apple's APIs: fewer lines of code, concise C++ APIs, direct access to optimized algorithms, and greater flexibility. While Swift offers better readability, C++/OpenCV excelled in implementing complex vision tasks with minimal boilerplate.
 
 ## Development Process
 
@@ -120,7 +90,3 @@ While this is primarily a demonstration project, potential extensions include:
 - **Python Bindings**: Create Python wrappers for broader adoption
 - **Additional Analysis**: Face detection, object recognition, optical flow
 - **Real-time Processing**: Webcam/streaming video analysis
-
-## Contributing
-
-This project serves as a proof-of-concept for AI-assisted development of cross-platform media analysis tools. While not actively maintained for production use, the codebase demonstrates solid C++ practices and OpenCV integration that can be extended for specific use cases.
