@@ -34,6 +34,9 @@ cmake --build build
 
 # Run tests
 ctest --test-dir build
+
+# Format all the code
+find src test include \( -name '*.cpp' -o -name '*.hpp' \) | xargs clang-format -i
 ```
 
 ## Usage
@@ -43,37 +46,38 @@ ctest --test-dir build
 The included CLI tool demonstrates all analysis features:
 
 ```bash
-./build/vidicant_cli
+./build/vidicant_cli image.jpg video.mp4
 ```
 
 Example output:
 ```
-Image width: 1920
-Image height: 1080
+--- Processing Image: image.jpg ---
+Image width: 200
+Image height: 300
 Is grayscale: No
-Average brightness: 128.45
+Average brightness: 70.5859
 Number of channels: 3
-Edge count: 15420
+Edge count: 10179
 Dominant colors (RGB):
-  Color 1: (255.0, 128.5, 67.2)
-  Color 2: (45.3, 200.1, 150.8)
-  Color 3: (120.7, 89.4, 210.3)
-Blur score (variance): 245.67
+  Color 1: (7.52625, 45.8783, 23.4347)
+  Color 2: (148.956, 182.436, 153.126)
+  Color 3: (69.3954, 117.61, 102.319)
+Blur score (variance): 963.161
 
---- Video Analysis ---
-Video frame count: 1800
-Video FPS: 30.0
-Video resolution: 1920x1080
-Video duration: 60.0 seconds
-First frame extracted: 1920x1080, channels: 3
-Video average brightness: 132.18
+--- Processing Video: video.mp4 ---
+Video frame count: 250
+Video FPS: 25
+Video resolution: 320x176
+Video duration: 10 seconds
+First frame extracted: 320x176, channels: 3
+Video average brightness: 116.684
 Is video grayscale: No
 Saved first frame as image: Yes
-Video motion score: 12.45
+Video motion score: 5.16946
 Video dominant colors (RGB):
-  Color 1: (240.2, 135.8, 72.1)
-  Color 2: (52.7, 195.3, 145.9)
-  Color 3: (115.4, 94.2, 205.8)
+  Color 1: (68.8892, 84.6371, 63.5126)
+  Color 2: (199.317, 185.903, 197.755)
+  Color 3: (99.5565, 116.96, 102.359)
 ```
 
 ### Library Usage
