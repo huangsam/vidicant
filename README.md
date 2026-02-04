@@ -49,37 +49,6 @@ The included CLI tool demonstrates all analysis features:
 ./build/vidicant_cli image.jpg video.mp4
 ```
 
-Example output:
-```
---- Processing Image: image.jpg ---
-Image width: 200
-Image height: 300
-Is grayscale: No
-Average brightness: 70.5859
-Number of channels: 3
-Edge count: 10179
-Dominant colors (RGB):
-  Color 1: (7.52625, 45.8783, 23.4347)
-  Color 2: (148.956, 182.436, 153.126)
-  Color 3: (69.3954, 117.61, 102.319)
-Blur score (variance): 963.161
-
---- Processing Video: video.mp4 ---
-Video frame count: 250
-Video FPS: 25
-Video resolution: 320x176
-Video duration: 10 seconds
-First frame extracted: 320x176, channels: 3
-Video average brightness: 116.684
-Is video grayscale: No
-Saved first frame as image: Yes
-Video motion score: 5.16946
-Video dominant colors (RGB):
-  Color 1: (68.8892, 84.6371, 63.5126)
-  Color 2: (199.317, 185.903, 197.755)
-  Color 3: (99.5565, 116.96, 102.359)
-```
-
 ### Library Usage
 
 ```cpp
