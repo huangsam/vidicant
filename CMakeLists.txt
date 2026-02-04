@@ -18,6 +18,7 @@ find_package(GTest REQUIRED)
 # Define library target
 add_library(vidicant_lib 
   src/image.cpp
+  src/video.cpp
 )
 
 # Include directories and link libraries
@@ -26,7 +27,7 @@ target_link_libraries(vidicant_lib PRIVATE ${OpenCV_LIBS})
 
 # Add executable target for CLI
 add_executable(vidicant_cli src/main.cpp)
-target_include_directories(vidicant_cli PRIVATE include)
+target_include_directories(vidicant_cli PRIVATE include ${OpenCV_INCLUDE_DIRS})
 target_link_libraries(vidicant_cli PRIVATE vidicant_lib)
 
 # Apply target-specific compile options
