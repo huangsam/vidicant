@@ -17,7 +17,6 @@ find_package(GTest REQUIRED)
 
 # Define library target
 add_library(vidicant_lib 
-  src/hello.cpp
   src/image.cpp
 )
 
