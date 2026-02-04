@@ -13,17 +13,23 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # 2. Dependencies
 find_package(OpenCV REQUIRED)
+find_package(GTest REQUIRED)
 
-# 3. Target Definition
-add_executable(vidicant_cli 
-  src/main.cpp 
+# 3. Library
+add_library(vidicant_lib 
   src/hello.cpp
   src/image.cpp
 )
 
-# 4. Target-Specific Settings (The Modern Way)
-target_include_directories(vidicant_cli PRIVATE include)
+target_include_directories(vidicant_lib PRIVATE include)
+target_link_libraries(vidicant_lib PRIVATE ${OpenCV_LIBS})
 
+# 4. Executable
+add_executable(vidicant_cli src/main.cpp)
+target_include_directories(vidicant_cli PRIVATE include)
+target_link_libraries(vidicant_cli PRIVATE vidicant_lib)
+
+# 5. Target-Specific Settings (The Modern Way)
 target_compile_options(vidicant_cli PRIVATE 
   -Wall 
   -Wextra 
@@ -32,5 +38,6 @@ target_compile_options(vidicant_cli PRIVATE
   -Werror
 )
 
-# 5. Linking (OpenCV handles its own includes automatically here)
-target_link_libraries(vidicant_cli PRIVATE ${OpenCV_LIBS})
+# 6. Testing
+enable_testing()
+add_subdirectory(test)
