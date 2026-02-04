@@ -1,0 +1,114 @@
+# Development with AI Agents
+
+This document describes the development process of Vidicant, including AI assistance and project context.
+
+## Project Context
+
+Vidicant was developed as a demonstration project to showcase cross-platform media analysis capabilities using C++ and OpenCV. It serves as an open-source alternative to proprietary frameworks like Apple's Vision and AVFoundation.
+
+## Comparison to Apple's Frameworks
+
+This project demonstrates equivalent functionality to Apple's media processing frameworks:
+
+### Apple's Frameworks
+- **Vision Framework**: Advanced computer vision for iOS/macOS
+  - Face detection and recognition
+  - Object detection and classification
+  - Text detection (OCR)
+  - Image analysis and feature extraction
+
+- **AVFoundation**: Multimedia framework for iOS/macOS
+  - Video playback and recording
+  - Audio processing
+  - Media asset management
+  - Real-time video processing
+
+- **Core Image**: GPU-accelerated image processing
+  - Image filters and effects
+  - Real-time image processing
+  - Custom filter development
+
+### Vidicant's Equivalent Features
+
+**Image Analysis (Vision Framework equivalent):**
+- ✅ Dimensions and metadata extraction
+- ✅ Color analysis (brightness, channels, dominant colors)
+- ✅ Edge detection and feature extraction
+- ✅ Blur/sharpness analysis
+- ✅ Grayscale detection
+
+**Video Analysis (AVFoundation equivalent):**
+- ✅ Video metadata (frame count, FPS, resolution, duration)
+- ✅ Frame extraction and thumbnail generation
+- ✅ Motion analysis and scoring
+- ✅ Multi-frame brightness analysis
+- ✅ Video format handling
+
+**Processing Architecture (Core Image equivalent):**
+- ✅ Efficient OpenCV-based processing
+- ✅ Extensible interface design
+- ✅ Cross-platform compatibility
+
+## Key Differences
+
+| Aspect | Apple's Frameworks | Vidicant |
+|--------|-------------------|----------|
+| **Platforms** | iOS, macOS only | Windows, Linux, macOS |
+| **Dependencies** | Proprietary Apple APIs | Open-source OpenCV |
+| **Language** | Swift/Objective-C | C++ |
+| **Cost** | Free (Apple ecosystem) | Free (open-source) |
+| **Customization** | Limited by Apple APIs | Fully extensible |
+| **Distribution** | App Store only | Any platform |
+
+## Development Process
+
+This project was developed using AI-assisted coding tools, demonstrating modern software development practices:
+
+### AI Assistance Used
+- **Code Generation**: AI tools helped generate boilerplate code and implement complex algorithms
+- **Architecture Design**: Interface-based design patterns were developed with AI guidance
+- **Documentation**: Comprehensive comments and documentation were created with AI assistance
+- **Testing**: Unit test structure and implementation benefited from AI suggestions
+
+### Development Goals
+1. **Demonstrate Cross-Platform Capabilities**: Show that complex media analysis can be done without platform-specific APIs
+2. **Clean Architecture**: Implement extensible, maintainable C++ code
+3. **Performance**: Utilize OpenCV's optimized algorithms for efficient processing
+4. **Documentation**: Provide clear, comprehensive documentation and examples
+
+## Architecture
+
+Vidicant uses an interface-based design for extensibility:
+
+- `IImageLoader` / `IVideoLoader`: Abstract interfaces for media loading
+- `OpenCVImageLoader` / `OpenCVVideoLoader`: OpenCV-based implementations
+- `ImageHandler` / `VideoHandler`: High-level analysis classes
+- Convenience functions in the `vidicant` namespace for easy usage
+
+This design allows swapping backends or adding new analysis methods without changing the API.
+
+## Testing
+
+The project includes unit tests for all major functionality:
+
+```bash
+# Run all tests
+ctest --test-dir build
+
+# Run with verbose output
+ctest --test-dir build -V
+```
+
+## Future Enhancements
+
+While this is primarily a demonstration project, potential extensions include:
+
+- **Machine Learning Integration**: Add OpenCV DNN for classification/detection
+- **GPU Acceleration**: Utilize OpenCV CUDA for performance improvements
+- **Python Bindings**: Create Python wrappers for broader adoption
+- **Additional Analysis**: Face detection, object recognition, optical flow
+- **Real-time Processing**: Webcam/streaming video analysis
+
+## Contributing
+
+This project serves as a proof-of-concept for AI-assisted development of cross-platform media analysis tools. While not actively maintained for production use, the codebase demonstrates solid C++ practices and OpenCV integration that can be extended for specific use cases.
