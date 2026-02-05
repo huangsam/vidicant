@@ -6,31 +6,29 @@ sample_first_frame.jpg
 # C++
 .cache/
 CMakeFiles/
+_deps/
 build/
 cmake-build*/
-_deps/
-*.txt
-!CMakeLists.txt
-*.json
-!c_cpp_properties.json
 *.cmake
+*.json
+*.txt
 Makefile
+!CMakeLists.txt
+!c_cpp_properties.json
 
 # Python
 __pycache__/
-*.py[cod]
-*$py.class
-*.so
+.pytest_cache/
+dist/
+env/
+venv/
+.venv/
+.Python
+.coverage
 *.egg
 *.egg-info/
-dist/
-build/
-.Python
+*.py[cod]
 *.pyc
 *.pyo
-.pytest_cache/
-.coverage
-*.egg-info/
-venv/
-env/
-.venv/
+*.so
+*$py.class
