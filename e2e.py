@@ -52,12 +52,17 @@ def test_analyzing_images():
     # Verify field types and reasonable values
     assert isinstance(result["width"], int) and result["width"] > 0
     assert isinstance(result["height"], int) and result["height"] > 0
+    assert isinstance(result["aspect_ratio"], (int, float))
     assert isinstance(result["is_grayscale"], bool)
     assert 0 <= result["average_brightness"] <= 255
     assert result["channels"] in [1, 3]
     assert isinstance(result["edge_count"], int) and result["edge_count"] >= 0
     assert isinstance(result["dominant_colors"], list)
     assert isinstance(result["blur_score"], (int, float))
+    assert isinstance(result["contrast_ratio"], (int, float))
+    assert isinstance(result["saturation_level"], (int, float))
+    assert isinstance(result["entropy"], (int, float))
+    assert isinstance(result["histogram"], list)
 
     print("Image analysis result:")
     print(json.dumps(result, indent=2))
@@ -84,6 +89,9 @@ def test_analyzing_videos():
         "is_grayscale",
         "motion_score",
         "dominant_colors",
+        "scene_changes",
+        "frame_rate_stability",
+        "color_consistency",
     ]
 
     for field in expected_fields:
@@ -99,6 +107,9 @@ def test_analyzing_videos():
     assert isinstance(result["is_grayscale"], bool)
     assert isinstance(result["motion_score"], (int, float))
     assert isinstance(result["dominant_colors"], list)
+    assert isinstance(result["scene_changes"], list)
+    assert isinstance(result["frame_rate_stability"], (int, float))
+    assert isinstance(result["color_consistency"], (int, float))
 
     print(f"Duration: {result['duration_seconds']} seconds")
     print(f"Resolution: {result['width']}x{result['height']}")

@@ -101,12 +101,17 @@ Analyze an image file and return metrics.
 {
     "width": int,                    # Image width in pixels
     "height": int,                   # Image height in pixels
+    "aspect_ratio": float,           # Width/height ratio
     "is_grayscale": bool,            # True if image is grayscale
     "average_brightness": float,     # Mean brightness (0-255)
     "channels": int,                 # Number of color channels (1 or 3)
     "edge_count": int,               # Estimated number of edges detected
     "dominant_colors": list[list],   # Top 3 colors [[R,G,B], ...]
-    "blur_score": float              # Sharpness metric (0=blurry, 1=sharp)
+    "blur_score": float,             # Sharpness metric (higher = sharper)
+    "contrast_ratio": float,         # Dynamic range (max/min intensity)
+    "saturation_level": float,       # Average color saturation (0-255)
+    "entropy": float,                # Information content (0-8 bits)
+    "histogram": list[list]          # RGB channel histograms [256 bins each]
 }
 ```
 
@@ -123,8 +128,11 @@ Analyze a video file and return metrics.
     "duration_seconds": float,       # Video duration in seconds
     "average_brightness": float,     # Mean brightness across frames
     "is_grayscale": bool,            # True if video is grayscale
-    "motion_score": float,           # Motion intensity (0-1)
-    "dominant_colors": list[list]    # Top dominant colors
+    "motion_score": float,           # Motion intensity (higher = more motion)
+    "dominant_colors": list[list],   # Top dominant colors across frames
+    "scene_changes": list[int],      # Frame indices where scene changes occur
+    "frame_rate_stability": float,   # Frame rate consistency (lower = more stable)
+    "color_consistency": float       # Color stability across frames (lower = more consistent)
 }
 ```
 

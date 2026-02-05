@@ -75,6 +75,21 @@ nlohmann::json processImage(const std::string &filename) {
   double blurScore = vidicant::getImageBlurScore(filename);
   result["blur_score"] = blurScore;
 
+  double contrastRatio = vidicant::getImageContrastRatio(filename);
+  result["contrast_ratio"] = contrastRatio;
+
+  double saturationLevel = vidicant::getImageSaturationLevel(filename);
+  result["saturation_level"] = saturationLevel;
+
+  auto histogram = vidicant::getImageHistogram(filename);
+  result["histogram"] = histogram;
+
+  double aspectRatio = vidicant::getImageAspectRatio(filename);
+  result["aspect_ratio"] = aspectRatio;
+
+  double entropy = vidicant::getImageEntropy(filename);
+  result["entropy"] = entropy;
+
   return result;
 }
 
@@ -138,6 +153,18 @@ nlohmann::json processVideo(const std::string &filename) {
     result["dominant_colors"].push_back(
         {videoColors[i][0], videoColors[i][1], videoColors[i][2]});
   }
+
+  // Scene change detection
+  auto sceneChanges = vidicant::detectVideoSceneChanges(filename);
+  result["scene_changes"] = sceneChanges;
+
+  // Frame rate stability
+  double frStability = vidicant::getVideoFrameRateStability(filename);
+  result["frame_rate_stability"] = frStability;
+
+  // Color consistency
+  double colorConsistency = vidicant::getVideoColorConsistency(filename);
+  result["color_consistency"] = colorConsistency;
 
   return result;
 }

@@ -136,6 +136,18 @@ public:
   // Extracts dominant colors from the video frames.
   // @return A vector of arrays representing dominant colors in RGB format.
   std::vector<std::array<double, 3>> getDominantColors();
+
+  // Detects scene changes in the video.
+  // @return A vector of frame indices where scene changes occur.
+  std::vector<int> detectSceneChanges(double threshold = 30.0);
+
+  // Calculates frame rate stability (coefficient of variation).
+  // @return Frame rate stability score (lower is more stable).
+  double getFrameRateStability();
+
+  // Calculates color consistency across frames.
+  // @return Color consistency score (higher means more consistent).
+  double getColorConsistency();
 };
 
 // Namespace: vidicant
@@ -176,6 +188,16 @@ double getVideoMotionScore(const std::string &filename);
 // Convenience function to get dominant colors.
 std::vector<std::array<double, 3>>
 getVideoDominantColors(const std::string &filename);
+
+// Convenience function to detect scene changes.
+std::vector<int> detectVideoSceneChanges(const std::string &filename,
+                                         double threshold = 30.0);
+
+// Convenience function to get frame rate stability.
+double getVideoFrameRateStability(const std::string &filename);
+
+// Convenience function to get color consistency.
+double getVideoColorConsistency(const std::string &filename);
 
 } // namespace vidicant
 

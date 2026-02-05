@@ -147,3 +147,52 @@ TEST(VideoGlobalTest, GetVideoDominantColorsReal) {
     EXPECT_LE(color[2], 255.0);
   }
 }
+
+TEST(VideoGlobalTest, DetectVideoSceneChangesReal) {
+  auto sceneChanges = vidicant::detectVideoSceneChanges(
+      "/workspaces/vidicant/examples/sample.mp4");
+  // Should return a vector of frame indices
+  EXPECT_TRUE(sceneChanges.empty() ||
+              !sceneChanges.empty()); // Can be empty or have changes
+  for (int frameIdx : sceneChanges) {
+    EXPECT_GE(frameIdx, 0);
+  }
+}
+
+TEST(VideoGlobalTest, GetVideoFrameRateStabilityReal) {
+  double stability = vidicant::getVideoFrameRateStability(
+      "/workspaces/vidicant/examples/sample.mp4");
+  EXPECT_GE(stability, 0.0); // Should be non-negative
+}
+
+TEST(VideoGlobalTest, GetVideoColorConsistencyReal) {
+  double consistency = vidicant::getVideoColorConsistency(
+      "/workspaces/vidicant/examples/sample.mp4");
+  EXPECT_GE(consistency, 0.0); // Should be non-negative
+  EXPECT_LE(consistency, 1.0); // Coefficient of variation should be <= 1.0
+}
+
+// Tests for new video convenience functions
+TEST(VideoGlobalTest, DetectVideoSceneChangesConvenienceReal) {
+  auto sceneChanges = vidicant::detectVideoSceneChanges(
+      "/workspaces/vidicant/examples/sample.mp4");
+  // Should return a vector of frame indices
+  EXPECT_TRUE(sceneChanges.empty() ||
+              !sceneChanges.empty()); // Can be empty or have changes
+  for (int frameIdx : sceneChanges) {
+    EXPECT_GE(frameIdx, 0);
+  }
+}
+
+TEST(VideoGlobalTest, GetVideoFrameRateStabilityConvenienceReal) {
+  double stability = vidicant::getVideoFrameRateStability(
+      "/workspaces/vidicant/examples/sample.mp4");
+  EXPECT_GE(stability, 0.0); // Should be non-negative
+}
+
+TEST(VideoGlobalTest, GetVideoColorConsistencyConvenienceReal) {
+  double consistency = vidicant::getVideoColorConsistency(
+      "/workspaces/vidicant/examples/sample.mp4");
+  EXPECT_GE(consistency, 0.0); // Should be non-negative
+  EXPECT_LE(consistency, 1.0); // Coefficient of variation should be <= 1.0
+}

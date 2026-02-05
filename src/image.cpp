@@ -97,6 +97,82 @@ double ImageHandler::getBlurScore(const std::string &filename) {
   return stddev[0] * stddev[0]; // Variance
 }
 
+double ImageHandler::getContrastRatio(const std::string &filename) {
+  cv::Mat image = loader_->imread(filename);
+  if (image.empty())
+    return -1.0;
+  cv::Mat gray;
+  if (image.channels() == 1) {
+    gray = image;
+  } else {
+    cv::cvtColor(image, gray, cv::COLOR_BGR2GRAY);
+  }
+  double minVal, maxVal;
+  cv::minMaxLoc(gray, &minVal, &maxVal);
+  return maxVal > 0 ? maxVal / (minVal + 1e-6) : 0.0; // Avoid division by zero
+}
+
+double ImageHandler::getSaturationLevel(const std::string &filename) {
+  cv::Mat image = loader_->imread(filename);
+  if (image.empty() || image.channels() < 3)
+    return -1.0;
+  cv::Mat hsv;
+  cv::cvtColor(image, hsv, cv::COLOR_BGR2HSV);
+  cv::Scalar mean = cv::mean(hsv);
+  return mean[1]; // Saturation channel
+}
+
+std::vector<std::vector<int>>
+ImageHandler::getHistogram(const std::string &filename) {
+  cv::Mat image = loader_->imread(filename);
+  if (image.empty())
+    return {};
+  std::vector<cv::Mat> channels;
+  cv::split(image, channels);
+  std::vector<std::vector<int>> histograms;
+  for (const auto &channel : channels) {
+    std::vector<int> hist(256, 0);
+    for (int i = 0; i < channel.rows; ++i) {
+      for (int j = 0; j < channel.cols; ++j) {
+        hist[channel.at<uchar>(i, j)]++;
+      }
+    }
+    histograms.push_back(hist);
+  }
+  return histograms;
+}
+
+double ImageHandler::getAspectRatio(const std::string &filename) {
+  auto [width, height] = getDimensions(filename);
+  return height > 0 ? static_cast<double>(width) / height : 0.0;
+}
+
+double ImageHandler::getImageEntropy(const std::string &filename) {
+  cv::Mat image = loader_->imread(filename);
+  if (image.empty())
+    return -1.0;
+  cv::Mat gray;
+  if (image.channels() == 1) {
+    gray = image;
+  } else {
+    cv::cvtColor(image, gray, cv::COLOR_BGR2GRAY);
+  }
+  cv::Mat hist;
+  int histSize = 256;
+  float range[] = {0, 256};
+  const float *histRange = {range};
+  cv::calcHist(&gray, 1, 0, cv::Mat(), hist, 1, &histSize, &histRange);
+  hist /= gray.total(); // Normalize
+  double entropy = 0.0;
+  for (int i = 0; i < histSize; ++i) {
+    float p = hist.at<float>(i);
+    if (p > 0) {
+      entropy -= p * log2(p);
+    }
+  }
+  return entropy;
+}
+
 namespace vidicant {
 
 std::pair<int, int> getImageDimensions(const std::string &filename) {
@@ -140,6 +216,36 @@ double getImageBlurScore(const std::string &filename) {
   auto loader = std::make_unique<OpenCVImageLoader>();
   ImageHandler handler(std::move(loader));
   return handler.getBlurScore(filename);
+}
+
+double getImageContrastRatio(const std::string &filename) {
+  auto loader = std::make_unique<OpenCVImageLoader>();
+  ImageHandler handler(std::move(loader));
+  return handler.getContrastRatio(filename);
+}
+
+double getImageSaturationLevel(const std::string &filename) {
+  auto loader = std::make_unique<OpenCVImageLoader>();
+  ImageHandler handler(std::move(loader));
+  return handler.getSaturationLevel(filename);
+}
+
+std::vector<std::vector<int>> getImageHistogram(const std::string &filename) {
+  auto loader = std::make_unique<OpenCVImageLoader>();
+  ImageHandler handler(std::move(loader));
+  return handler.getHistogram(filename);
+}
+
+double getImageAspectRatio(const std::string &filename) {
+  auto loader = std::make_unique<OpenCVImageLoader>();
+  ImageHandler handler(std::move(loader));
+  return handler.getAspectRatio(filename);
+}
+
+double getImageEntropy(const std::string &filename) {
+  auto loader = std::make_unique<OpenCVImageLoader>();
+  ImageHandler handler(std::move(loader));
+  return handler.getImageEntropy(filename);
 }
 
 } // namespace vidicant

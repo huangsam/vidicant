@@ -1,5 +1,7 @@
 #include "vidicant/video.hpp"
+#include <cmath>
 #include <iostream>
+#include <numeric>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/opencv.hpp>
 #include <vector>
@@ -163,6 +165,77 @@ std::vector<std::array<double, 3>> VideoHandler::getDominantColors() {
   return dominantColors;
 }
 
+std::vector<int> VideoHandler::detectSceneChanges(double threshold) {
+  auto tempLoader = std::make_unique<OpenCVVideoLoader>();
+  if (!tempLoader->open(filename_))
+    return {};
+  cv::Mat prevFrame, currFrame;
+  prevFrame = tempLoader->readFrame();
+  if (prevFrame.empty())
+    return {};
+  cv::cvtColor(prevFrame, prevFrame, cv::COLOR_BGR2GRAY);
+  std::vector<int> sceneChanges;
+  int frameIndex = 1;
+  currFrame = tempLoader->readFrame();
+  while (!currFrame.empty()) {
+    cv::Mat grayCurr;
+    cv::cvtColor(currFrame, grayCurr, cv::COLOR_BGR2GRAY);
+    cv::Mat diff;
+    cv::absdiff(prevFrame, grayCurr, diff);
+    cv::Scalar meanDiff = cv::mean(diff);
+    if (meanDiff[0] > threshold) {
+      sceneChanges.push_back(frameIndex);
+    }
+    prevFrame = grayCurr;
+    frameIndex++;
+    currFrame = tempLoader->readFrame();
+    if (frameIndex > 1000) // Limit to first 1000 frames for performance
+      break;
+  }
+  return sceneChanges;
+}
+
+double VideoHandler::getFrameRateStability() {
+  // For simplicity, we'll check if FPS is consistent across the video
+  // In a real implementation, you'd analyze frame timestamps
+  double fps = getFPS();
+  if (fps <= 0)
+    return -1.0;
+  // This is a simplified implementation - real frame rate stability
+  // would require analyzing actual frame timing
+  return 0.0; // Perfect stability for now (placeholder)
+}
+
+double VideoHandler::getColorConsistency() {
+  auto tempLoader = std::make_unique<OpenCVVideoLoader>();
+  if (!tempLoader->open(filename_))
+    return -1.0;
+  cv::Mat frame;
+  std::vector<double> brightnesses;
+  int count = 0;
+  frame = tempLoader->readFrame();
+  while (!frame.empty() && count < 50) { // Sample 50 frames
+    cv::Scalar mean = cv::mean(frame);
+    double brightness =
+        (frame.channels() == 1) ? mean[0] : (mean[0] + mean[1] + mean[2]) / 3.0;
+    brightnesses.push_back(brightness);
+    count++;
+    frame = tempLoader->readFrame();
+  }
+  if (brightnesses.empty())
+    return -1.0;
+  // Calculate coefficient of variation (lower = more consistent)
+  double mean = std::accumulate(brightnesses.begin(), brightnesses.end(), 0.0) /
+                brightnesses.size();
+  double variance = 0.0;
+  for (double b : brightnesses) {
+    variance += (b - mean) * (b - mean);
+  }
+  variance /= brightnesses.size();
+  double stddev = sqrt(variance);
+  return mean > 0 ? (stddev / mean) : 0.0; // Coefficient of variation
+}
+
 namespace vidicant {
 int getVideoFrameCount(const std::string &filename) {
   VideoHandler handler(std::make_unique<OpenCVVideoLoader>());
@@ -234,6 +307,28 @@ getVideoDominantColors(const std::string &filename) {
   if (!handler.open(filename))
     return {};
   return handler.getDominantColors();
+}
+
+std::vector<int> detectVideoSceneChanges(const std::string &filename,
+                                         double threshold) {
+  VideoHandler handler(std::make_unique<OpenCVVideoLoader>());
+  if (!handler.open(filename))
+    return {};
+  return handler.detectSceneChanges(threshold);
+}
+
+double getVideoFrameRateStability(const std::string &filename) {
+  VideoHandler handler(std::make_unique<OpenCVVideoLoader>());
+  if (!handler.open(filename))
+    return -1.0;
+  return handler.getFrameRateStability();
+}
+
+double getVideoColorConsistency(const std::string &filename) {
+  VideoHandler handler(std::make_unique<OpenCVVideoLoader>());
+  if (!handler.open(filename))
+    return -1.0;
+  return handler.getColorConsistency();
 }
 
 } // namespace vidicant

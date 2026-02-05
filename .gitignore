@@ -8,10 +8,13 @@ sample_first_frame.jpg
 CMakeFiles/
 build/
 cmake-build*/
+_deps/
 *.txt
 !CMakeLists.txt
 *.json
 !c_cpp_properties.json
+*.cmake
+Makefile
 
 # Python
 __pycache__/

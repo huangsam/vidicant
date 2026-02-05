@@ -79,6 +79,21 @@ public:
 
   // Calculates a blur score for the image using Laplacian variance.
   double getBlurScore(const std::string &filename);
+
+  // Calculates the contrast ratio of the image.
+  double getContrastRatio(const std::string &filename);
+
+  // Calculates the average saturation of the image.
+  double getSaturationLevel(const std::string &filename);
+
+  // Gets the RGB histogram data for the image.
+  std::vector<std::vector<int>> getHistogram(const std::string &filename);
+
+  // Calculates the aspect ratio (width/height) of the image.
+  double getAspectRatio(const std::string &filename);
+
+  // Calculates the entropy (information content) of the image.
+  double getImageEntropy(const std::string &filename);
 };
 
 // Namespace: vidicant
@@ -109,6 +124,21 @@ getImageDominantColors(const std::string &filename, int k = 3);
 
 // Convenience function to get blur score.
 double getImageBlurScore(const std::string &filename);
+
+// Convenience function to get contrast ratio.
+double getImageContrastRatio(const std::string &filename);
+
+// Convenience function to get saturation level.
+double getImageSaturationLevel(const std::string &filename);
+
+// Convenience function to get histogram.
+std::vector<std::vector<int>> getImageHistogram(const std::string &filename);
+
+// Convenience function to get aspect ratio.
+double getImageAspectRatio(const std::string &filename);
+
+// Convenience function to get image entropy.
+double getImageEntropy(const std::string &filename);
 
 } // namespace vidicant
 

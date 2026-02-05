@@ -125,3 +125,105 @@ TEST(ImageHandlerTest, GetBlurScore) {
 
   EXPECT_GT(blurScore, 0.0); // Should have some variance
 }
+
+TEST(ImageHandlerTest, GetContrastRatio) {
+  auto mockLoader = std::make_unique<MockImageLoader>();
+  cv::Mat image(10, 10, CV_8UC1, cv::Scalar(100));
+  image.at<uchar>(5, 5) = 200; // Add some contrast
+  EXPECT_CALL(*mockLoader, imread("contrast.jpg"))
+      .WillOnce(::testing::Return(image));
+
+  ImageHandler handler(std::move(mockLoader));
+  double contrastRatio = handler.getContrastRatio("contrast.jpg");
+
+  EXPECT_GT(contrastRatio, 1.0); // Should have contrast
+}
+
+TEST(ImageHandlerTest, GetSaturationLevel) {
+  auto mockLoader = std::make_unique<MockImageLoader>();
+  cv::Mat image(10, 10, CV_8UC3, cv::Scalar(100, 150, 200)); // High saturation
+  EXPECT_CALL(*mockLoader, imread("saturated.jpg"))
+      .WillOnce(::testing::Return(image));
+
+  ImageHandler handler(std::move(mockLoader));
+  double saturation = handler.getSaturationLevel("saturated.jpg");
+
+  EXPECT_GT(saturation, 0.0);
+  EXPECT_LE(saturation, 255.0);
+}
+
+TEST(ImageHandlerTest, GetHistogram) {
+  auto mockLoader = std::make_unique<MockImageLoader>();
+  cv::Mat image(2, 2, CV_8UC3, cv::Scalar(0, 128, 255));
+  EXPECT_CALL(*mockLoader, imread("histogram.jpg"))
+      .WillOnce(::testing::Return(image));
+
+  ImageHandler handler(std::move(mockLoader));
+  auto histogram = handler.getHistogram("histogram.jpg");
+
+  EXPECT_EQ(histogram.size(), 3);      // RGB channels
+  EXPECT_EQ(histogram[0].size(), 256); // 256 bins
+  EXPECT_EQ(histogram[1].size(), 256);
+  EXPECT_EQ(histogram[2].size(), 256);
+}
+
+TEST(ImageHandlerTest, GetAspectRatio) {
+  auto mockLoader = std::make_unique<MockImageLoader>();
+  cv::Mat image(100, 200, CV_8UC3); // width 200, height 100
+  EXPECT_CALL(*mockLoader, imread("aspect.jpg"))
+      .WillOnce(::testing::Return(image));
+
+  ImageHandler handler(std::move(mockLoader));
+  double aspectRatio = handler.getAspectRatio("aspect.jpg");
+
+  EXPECT_EQ(aspectRatio, 2.0); // 200/100 = 2.0
+}
+
+TEST(ImageHandlerTest, GetImageEntropy) {
+  auto mockLoader = std::make_unique<MockImageLoader>();
+  cv::Mat image(10, 10, CV_8UC1, cv::Scalar(128));
+  EXPECT_CALL(*mockLoader, imread("entropy.jpg"))
+      .WillOnce(::testing::Return(image));
+
+  ImageHandler handler(std::move(mockLoader));
+  double entropy = handler.getImageEntropy("entropy.jpg");
+
+  EXPECT_GE(entropy, 0.0);
+  EXPECT_LE(entropy, 8.0); // Max entropy for 8-bit image
+}
+
+// Tests using real files for convenience functions
+TEST(ImageGlobalTest, GetImageContrastRatioReal) {
+  double contrast = vidicant::getImageContrastRatio(
+      "/workspaces/vidicant/examples/sample.jpg");
+  EXPECT_GT(contrast, 1.0); // Should have some contrast
+}
+
+TEST(ImageGlobalTest, GetImageSaturationLevelReal) {
+  double saturation = vidicant::getImageSaturationLevel(
+      "/workspaces/vidicant/examples/sample.jpg");
+  EXPECT_GE(saturation, 0.0);
+  EXPECT_LE(saturation, 255.0);
+}
+
+TEST(ImageGlobalTest, GetImageHistogramReal) {
+  auto histogram =
+      vidicant::getImageHistogram("/workspaces/vidicant/examples/sample.jpg");
+  EXPECT_EQ(histogram.size(), 3);      // RGB channels
+  EXPECT_EQ(histogram[0].size(), 256); // 256 bins per channel
+  EXPECT_EQ(histogram[1].size(), 256);
+  EXPECT_EQ(histogram[2].size(), 256);
+}
+
+TEST(ImageGlobalTest, GetImageAspectRatioReal) {
+  double aspectRatio =
+      vidicant::getImageAspectRatio("/workspaces/vidicant/examples/sample.jpg");
+  EXPECT_GT(aspectRatio, 0.0);
+}
+
+TEST(ImageGlobalTest, GetImageEntropyReal) {
+  double entropy =
+      vidicant::getImageEntropy("/workspaces/vidicant/examples/sample.jpg");
+  EXPECT_GE(entropy, 0.0);
+  EXPECT_LE(entropy, 8.0);
+}
