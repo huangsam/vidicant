@@ -4,10 +4,12 @@
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/**",
+                "${workspaceFolder}/build/_deps/pybind11-src/include",
                 "/usr/include/opencv4",
                 "/usr/include/gtest",
                 "/usr/include/gmock",
-                "/usr/include/nlohmann"
+                "/usr/include/nlohmann",
+                "/usr/include/python3.12"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/clang",

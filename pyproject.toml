@@ -1,0 +1,45 @@
+[build-system]
+requires = ["scikit-build-core", "pybind11"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "vidicant"
+version = "0.1.0"
+description = "Cross-platform media analysis library using C++ and OpenCV"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "Vidicant Contributors", email = ""}
+]
+requires-python = ">=3.8"
+dependencies = [
+    "opencv-python>=4.5.0",
+    "numpy>=1.19.0",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: C++",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=6.0",
+    "pytest-cov>=2.12.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/yourusername/vidicant"
+Documentation = "https://github.com/yourusername/vidicant#readme"
+
+[tool.scikit-build]
+cmake.minimum-version = "3.24"
+cmake.source-dir = "."
+cmake.build-type = "Release"
+wheel.packages = ["vidicant"]

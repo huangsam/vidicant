@@ -2,6 +2,10 @@
 
 Vidicant is a cross-platform C++ library for analyzing photo and video content, providing features similar to Apple's Vision and AVFoundation frameworks but using OpenCV for broader platform compatibility.
 
+See [AGENTS.md](AGENTS.md) for details on the AI agents that utilize this library for media analysis tasks.
+
+See [PYTHON.md](PYTHON.md) for details on the Python bindings that allow you to use Vidicant's features in Python applications.
+
 ## Overview
 
 This project demonstrates the ability to build media analysis tools that extract meaningful features from images and videos. It's designed as a cross-platform alternative to proprietary frameworks like Apple's Vision, offering:
