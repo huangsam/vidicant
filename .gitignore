@@ -1,15 +1,17 @@
+# General
 .idea/
+.DS_Store
+sample_first_frame.jpg
+
+# C++
 .cache/
 CMakeFiles/
 build/
 cmake-build*/
-.DS_Store
-Makefile
 *.txt
 !CMakeLists.txt
 *.json
 !c_cpp_properties.json
-sample_first_frame.jpg
 
 # Python
 __pycache__/
