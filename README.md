@@ -25,8 +25,14 @@ print(f"Motion: {result['motion_score']}")
 
 **For C++ users:**
 ```bash
-cmake -S . -B build && cmake --build build
+# Build the library
+cmake -S . -B build
+cmake --build build
+
+# Run the binary
 ./build/vidicant_cli image.jpg video.mp4
+
+# You can also use the C++ API for your own projects too
 ```
 
 ## Features
