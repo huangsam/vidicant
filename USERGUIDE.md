@@ -130,158 +130,82 @@ Analyze a video file and return metrics.
 
 ## Practical Examples
 
-### Example 1: Batch Image Analysis
+### Batch Image Analysis
 
 ```python
 import vidicant
-import os
 import pandas as pd
+from pathlib import Path
 
-# Analyze all images in a directory
 results = []
-for filename in os.listdir("images/"):
-    if vidicant.is_image_file(filename):
-        result = vidicant.process_image(f"images/{filename}")
-        result["filename"] = filename
+for path in Path("images/").glob("*"):
+    if vidicant.is_image_file(str(path)):
+        result = vidicant.process_image(str(path))
+        result["filename"] = path.name
         results.append(result)
 
-# Convert to DataFrame for analysis
 df = pd.DataFrame(results)
-print(df[["filename", "width", "height", "average_brightness"]])
-
-# Find brightest images
-brightest = df.nlargest(5, "average_brightness")
+print(df[["filename", "average_brightness", "blur_score"]])
 ```
 
-### Example 2: Quality Control
+### Quality Control
 
 ```python
 import vidicant
 
-def check_image_quality(filename):
-    result = vidicant.process_image(filename)
-    
-    # Check various quality metrics
+def check_quality(filename):
+    r = vidicant.process_image(filename)
     issues = []
-    
-    if result["blur_score"] < 0.5:
-        issues.append("Image is blurry")
-    
-    if result["average_brightness"] > 240:
-        issues.append("Image is overexposed")
-    
-    if result["average_brightness"] < 20:
-        issues.append("Image is underexposed")
-    
+    if r["blur_score"] < 0.5: issues.append("blurry")
+    if r["average_brightness"] > 240: issues.append("overexposed")
+    if r["average_brightness"] < 20: issues.append("underexposed")
     return "PASS" if not issues else f"FAIL: {', '.join(issues)}"
 
-# Test multiple images
-for image in ["photo1.jpg", "photo2.jpg", "photo3.jpg"]:
-    print(f"{image}: {check_image_quality(image)}")
+for img in ["photo1.jpg", "photo2.jpg"]:
+    print(f"{img}: {check_quality(img)}")
 ```
 
-### Example 3: ML Feature Extraction
+### ML Feature Extraction
 
 ```python
 import vidicant
-import numpy as np
 from sklearn.preprocessing import StandardScaler
 
-# Extract features for machine learning
-features = []
-labels = []
-
+features, labels = [], []
 for category in ["cats", "dogs"]:
-    for filename in os.listdir(f"data/{category}"):
-        if vidicant.is_image_file(f"data/{category}/{filename}"):
-            result = vidicant.process_image(f"data/{category}/{filename}")
-            
-            # Extract numeric features
-            feature_vec = [
-                result["average_brightness"],
-                result["edge_count"],
-                len(result["dominant_colors"]),
-                result["blur_score"]
-            ]
-            features.append(feature_vec)
-            labels.append(category)
+    for path in Path(f"data/{category}").glob("*.jpg"):
+        r = vidicant.process_image(str(path))
+        features.append([r["average_brightness"], r["edge_count"], r["blur_score"]])
+        labels.append(category)
 
-# Normalize features
 X = StandardScaler().fit_transform(features)
-y = labels
-
-# Now X, y ready for sklearn, PyTorch, TensorFlow, etc.
+# Now use X, labels with sklearn, PyTorch, TensorFlow
 ```
 
-### Example 4: Video Motion Detection
+### Video Motion Detection
 
 ```python
 import vidicant
 
-def analyze_video_activity(video_file):
-    result = vidicant.process_video(video_file)
-    
-    motion = result["motion_score"]
-    duration = result["duration_seconds"]
-    
-    if motion > 0.7:
-        activity_level = "HIGH"
-    elif motion > 0.3:
-        activity_level = "MEDIUM"
-    else:
-        activity_level = "LOW"
-    
-    print(f"Video: {video_file}")
-    print(f"  Duration: {duration:.1f}s")
-    print(f"  Motion: {motion:.2f}")
-    print(f"  Activity Level: {activity_level}")
-
-analyze_video_activity("security_footage.mp4")
+r = vidicant.process_video("video.mp4")
+activity = "HIGH" if r["motion_score"] > 0.7 else "LOW"
+print(f"Duration: {r['duration_seconds']:.1f}s, Activity: {activity}")
 ```
 
 ## Performance Tips
 
-- **Batch Processing**: Use a loop for multiple files rather than calling once per file
-  ```python
-  # Good
-  for file in files:
-      result = vidicant.process_image(file)
-  
-  # Bad (slower)
-  results = [vidicant.process_image(file) for file in files]
-  ```
-
-- **Large Videos**: Motion detection may take time for long videos
-  - Consider sampling frames if working with hour-long videos
-
-- **Memory**: Results are returned as Python dicts, which are memory-efficient
+- **Batch processing**: Process multiple files in a loop rather than with list comprehensions
+- **Large videos**: Motion detection scales with video length
+- **Memory**: Results are lightweight Python dicts
 
 ## Common Issues
 
-### "ModuleNotFoundError: No module named 'vidicant'"
-
-**Solution:** Reinstall the package:
-```bash
-pip install /path/to/vidicant --break-system-packages
-```
-
-### "Cannot open video file"
-
-**Solution:** Ensure the file exists and is in a supported format:
-```python
-import os
-if os.path.exists("video.mp4"):
-    if vidicant.is_video_file("video.mp4"):
-        result = vidicant.process_video("video.mp4")
-    else:
-        print("File format not supported")
-```
-
-### Import errors on non-Linux systems
-
-**Solution:** Ensure you have the necessary development libraries installed:
-- **macOS:** `brew install opencv`
-- **Windows:** Use pre-built wheels (when available on PyPI)
+| Issue | Solution |
+|-------|----------|
+| Module not found | Reinstall: `pip install /path/to/vidicant --break-system-packages` |
+| File not found | Verify file exists: `os.path.exists("file.jpg")` |
+| Unsupported format | Use `is_image_file()` or `is_video_file()` to check first |
+| macOS import errors | Install OpenCV: `brew install opencv` |
 
 ## What's Next?
 
