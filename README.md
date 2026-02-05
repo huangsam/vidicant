@@ -1,71 +1,63 @@
 # Vidicant
 
-Vidicant is a cross-platform C++ library for analyzing photo and video content, providing features similar to Apple's Vision and AVFoundation frameworks but using OpenCV for broader platform compatibility.
+Vidicant is a cross-platform library for analyzing images and videos, extracting meaningful features like brightness, colors, motion, and edge detection. It provides capabilities similar to Apple's Vision and AVFoundation frameworks but using OpenCV for broader platform compatibility.
 
-See [AGENTS.md](AGENTS.md) for details on the AI agents that utilize this library for media analysis tasks.
+## Quick Start
 
-See [PYTHON.md](PYTHON.md) for details on the Python bindings that allow you to use Vidicant's features in Python applications.
-
-## Overview
-
-This project demonstrates the ability to build media analysis tools that extract meaningful features from images and videos. It's designed as a cross-platform alternative to proprietary frameworks like Apple's Vision, offering:
-
-- **Image Analysis**: Dimensions, brightness, color channels, edge detection, dominant colors, blur scoring
-- **Video Analysis**: Frame count, FPS, resolution, duration, motion detection, brightness analysis
-- **Extensible Architecture**: Interface-based design allowing different backends
-- **Performance**: Efficient processing using OpenCV's optimized algorithms
-
-## Getting Started
-
-### Prerequisites
-- CMake 3.24+
-- OpenCV 4.x
-- GTest (for testing)
-- C++17 compatible compiler
-
-### Build Instructions
-
+**For Python users:**
 ```bash
-# Clone the repository
-git clone <repository-url>
-cd vidicant
-
-# Prepare the build environment
-cmake -S . -B build
-
-# Build the project
-cmake --build build
-
-# Run tests
-ctest --test-dir build
-
-# Format all the code
-find src test include \( -name '*.cpp' -o -name '*.hpp' \) | xargs clang-format -i
+pip install /path/to/vidicant
 ```
 
-## Usage
+```python
+import vidicant
 
-### Command Line Interface
+# Analyze an image
+result = vidicant.process_image("photo.jpg")
+print(f"Brightness: {result['average_brightness']}")
+print(f"Colors: {result['dominant_colors']}")
 
-The included CLI tool demonstrates all analysis features:
+# Analyze a video
+result = vidicant.process_video("video.mp4")
+print(f"Duration: {result['duration_seconds']}s")
+print(f"Motion: {result['motion_score']}")
+```
 
+**For C++ users:**
 ```bash
+cmake -S . -B build && cmake --build build
 ./build/vidicant_cli image.jpg video.mp4
 ```
 
-### Library Usage
+## Features
 
-```cpp
-#include "vidicant/image.hpp"
-#include "vidicant/video.hpp"
+- **Image Analysis**: Dimensions, brightness, color analysis, edge detection, blur scoring
+- **Video Analysis**: Frame count, FPS, resolution, duration, motion detection
+- **Cross-platform**: Windows, macOS, Linux support
+- **Python Integration**: Full Python bindings via pybind11
+- **CLI Tool**: Command-line interface for quick analysis
 
-// Image analysis
-auto [width, height] = vidicant::getImageDimensions("image.jpg");
-double brightness = vidicant::getImageAverageBrightness("image.jpg");
-auto colors = vidicant::getImageDominantColors("image.jpg", 5);
+## Documentation
 
-// Video analysis
-int frames = vidicant::getVideoFrameCount("video.mp4");
-double fps = vidicant::getVideoFPS("video.mp4");
-double motion = vidicant::getVideoMotionScore("video.mp4");
-```
+- **[PYTHON.md](PYTHON.md)** — Python package usage, API reference, troubleshooting
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** — Building from source, development setup, C++ API
+- **[AGENTS.md](AGENTS.md)** — AI agent development and project context
+
+## Comparison to Similar Tools
+
+| Tool | Purpose | Strengths |
+|------|---------|-----------|
+| **Vidicant** | Media analysis & feature extraction | Fast, cross-platform, Python-friendly |
+| **PIL/Pillow** | Image manipulation | Mature, many filters and transforms |
+| **OpenCV** | Computer vision | Advanced algorithms, low-level control |
+| **Apple Vision** | iOS/macOS analysis | Native integration, proprietary |
+
+Vidicant fills the "fast media feature extraction" niche — ideal for ML preprocessing pipelines, batch analysis, and cross-platform distribution.
+
+## Use Cases
+
+- **Machine Learning**: Extract image/video metrics for training datasets
+- **Batch Processing**: Analyze thousands of media files quickly
+- **Media QA**: Validate image/video quality metrics
+- **Data Science**: Prepare media features for analysis
+- **Cross-platform Apps**: Consistent media analysis across Windows, Mac, Linux
