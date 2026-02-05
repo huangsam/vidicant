@@ -87,7 +87,7 @@ ctest --test-dir build --coverage
 
 ## Python Bindings
 
-Vidicant is also available as a Python package via pybind11. See [PYTHON.md](PYTHON.md) for details.
+Vidicant is also available as a Python package via pybind11. See [USERGUIDE.md](USERGUIDE.md) and [AGENTS.md](AGENTS.md#python-bindings-implementation) for details.
 
 To rebuild the Python extension during development:
 

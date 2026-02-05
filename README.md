@@ -45,9 +45,9 @@ cmake --build build
 
 ## Documentation
 
-- **[PYTHON.md](PYTHON.md)** — Python package usage, API reference, troubleshooting
+- **[USERGUIDE.md](USERGUIDE.md)** — Python usage, API reference, practical examples
 - **[CONTRIBUTING.md](CONTRIBUTING.md)** — Building from source, development setup, C++ API
-- **[AGENTS.md](AGENTS.md)** — AI agent development and project context
+- **[AGENTS.md](AGENTS.md)** — Project context, development process, Python bindings architecture
 
 ## Comparison to Similar Tools
 
