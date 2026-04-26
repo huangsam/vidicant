@@ -196,3 +196,77 @@ TEST(VideoGlobalTest, GetVideoColorConsistencyConvenienceReal) {
   EXPECT_GE(consistency, 0.0); // Should be non-negative
   EXPECT_LE(consistency, 1.0); // Coefficient of variation should be <= 1.0
 }
+
+TEST(VideoGlobalTest, GetVideoOpticalFlowMagnitudeReal) {
+  double flow = vidicant::getVideoOpticalFlowMagnitude(
+      "/workspaces/vidicant/examples/sample.mp4");
+  EXPECT_GE(flow, 0.0);
+}
+
+TEST(VideoGlobalTest, VideoHasAudioTrackReal) {
+  // Just verify it returns a boolean without crashing
+  bool hasAudio =
+      vidicant::videoHasAudioTrack("/workspaces/vidicant/examples/sample.mp4");
+  (void)hasAudio;
+  SUCCEED();
+}
+
+TEST(VideoGlobalTest, GetVideoShotLengthStatsReal) {
+  ShotLengthStats stats = vidicant::getVideoShotLengthStats(
+      "/workspaces/vidicant/examples/sample.mp4");
+  EXPECT_GE(stats.count, 1);
+  EXPECT_GT(stats.mean, 0.0);
+  EXPECT_GE(stats.min, 0.0);
+  EXPECT_GE(stats.max, stats.min);
+}
+
+TEST(VideoGlobalTest, GetVideoFlickerScoreReal) {
+  double flicker = vidicant::getVideoFlickerScore(
+      "/workspaces/vidicant/examples/sample.mp4");
+  EXPECT_GE(flicker, 0.0);
+}
+
+TEST(VideoGlobalTest, GetVideoBestThumbnailIndexReal) {
+  int idx = vidicant::getVideoBestThumbnailIndex(
+      "/workspaces/vidicant/examples/sample.mp4");
+  EXPECT_GE(idx, 0);
+}
+
+TEST(VideoGlobalTest, GetVideoTemporalBrightnessCurveReal) {
+  auto curve = vidicant::getVideoTemporalBrightnessCurve(
+      "/workspaces/vidicant/examples/sample.mp4");
+  EXPECT_GT(curve.size(), 0U);
+  EXPECT_LE(curve.size(), 100U);
+  for (double b : curve) {
+    EXPECT_GE(b, 0.0);
+    EXPECT_LE(b, 255.0);
+  }
+}
+
+TEST(VideoGlobalTest, GetVideoCodecFourccReal) {
+  std::string fourcc =
+      vidicant::getVideoCodecFourcc("/workspaces/vidicant/examples/sample.mp4");
+  // May be empty on some backends; just check it doesn't crash
+  EXPECT_TRUE(fourcc.empty() || fourcc.length() == 4);
+}
+
+TEST(VideoGlobalTest, CompareVideoWithSelfReal) {
+  double sim =
+      vidicant::compareVideos("/workspaces/vidicant/examples/sample.mp4",
+                              "/workspaces/vidicant/examples/sample.mp4");
+  EXPECT_GT(sim, 0.5); // Same video should be highly similar
+}
+
+TEST(VideoGlobalTest, GetVideoMetricsReal) {
+  VideoMetrics m =
+      vidicant::getVideoMetrics("/workspaces/vidicant/examples/sample.mp4");
+  EXPECT_GT(m.frame_count, 0);
+  EXPECT_GT(m.fps, 0.0);
+  EXPECT_GT(m.width, 0);
+  EXPECT_GT(m.height, 0);
+  EXPECT_GE(m.optical_flow_magnitude, 0.0);
+  EXPECT_GE(m.flicker_score, 0.0);
+  EXPECT_GE(m.best_thumbnail_frame, 0);
+  EXPECT_GT(m.temporal_brightness_curve.size(), 0U);
+  EXPECT_GE(m.shot_length_stats.count, 1);
+}

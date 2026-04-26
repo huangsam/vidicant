@@ -42,53 +42,44 @@ nlohmann::json processImage(const std::string &filename) {
   nlohmann::json result;
   result["filename"] = filename;
 
-  // Get image dimensions
-  auto [width, height] = vidicant::getImageDimensions(filename);
-  if (width == -1) {
+  // Load and analyse the image once via a single ImageHandler.
+  ImageMetrics m = vidicant::getImageMetrics(filename);
+  if (m.width == -1) {
     result["error"] = "Failed to load image";
     return result;
   }
 
-  result["width"] = width;
-  result["height"] = height;
+  result["width"] = m.width;
+  result["height"] = m.height;
+  result["is_grayscale"] = m.is_grayscale;
+  result["average_brightness"] = m.average_brightness;
+  result["channels"] = m.channels;
+  result["edge_count"] = m.edge_count;
 
-  // Additional analyses
-  bool grayscale = vidicant::isImageGrayscale(filename);
-  result["is_grayscale"] = grayscale;
-
-  double brightness = vidicant::getImageAverageBrightness(filename);
-  result["average_brightness"] = brightness;
-
-  int channels = vidicant::getImageNumberOfChannels(filename);
-  result["channels"] = channels;
-
-  int edgeCount = vidicant::getImageEdgeCount(filename);
-  result["edge_count"] = edgeCount;
-
-  auto dominantColors = vidicant::getImageDominantColors(filename, 3);
   result["dominant_colors"] = nlohmann::json::array();
-  for (size_t i = 0; i < dominantColors.size(); ++i) {
-    result["dominant_colors"].push_back(
-        {dominantColors[i][0], dominantColors[i][1], dominantColors[i][2]});
+  for (const auto &color : m.dominant_colors) {
+    result["dominant_colors"].push_back({color[0], color[1], color[2]});
   }
 
-  double blurScore = vidicant::getImageBlurScore(filename);
-  result["blur_score"] = blurScore;
+  result["blur_score"] = m.blur_score;
+  result["contrast_ratio"] = m.contrast_ratio;
+  result["saturation_level"] = m.saturation_level;
+  result["histogram"] = m.histogram;
+  result["aspect_ratio"] = m.aspect_ratio;
+  result["entropy"] = m.entropy;
+  result["noise_estimate"] = m.noise_estimate;
+  result["symmetry_score"] = m.symmetry_score;
 
-  double contrastRatio = vidicant::getImageContrastRatio(filename);
-  result["contrast_ratio"] = contrastRatio;
+  result["texture_features"] = {{"contrast", m.texture.contrast},
+                                {"energy", m.texture.energy},
+                                {"homogeneity", m.texture.homogeneity},
+                                {"correlation", m.texture.correlation}};
 
-  double saturationLevel = vidicant::getImageSaturationLevel(filename);
-  result["saturation_level"] = saturationLevel;
-
-  auto histogram = vidicant::getImageHistogram(filename);
-  result["histogram"] = histogram;
-
-  double aspectRatio = vidicant::getImageAspectRatio(filename);
-  result["aspect_ratio"] = aspectRatio;
-
-  double entropy = vidicant::getImageEntropy(filename);
-  result["entropy"] = entropy;
+  result["perceptual_hash"] = m.perceptual_hash;
+  result["white_balance_score"] = m.white_balance_score;
+  result["hue_histogram"] = m.hue_histogram;
+  result["sharpness_score"] = m.sharpness_score;
+  result["noise_type"] = m.noise_type;
 
   return result;
 }
@@ -98,25 +89,14 @@ nlohmann::json processVideo(const std::string &filename) {
   nlohmann::json result;
   result["filename"] = filename;
 
+  // Validate the file can be opened before the expensive full analysis.
   int frameCount = vidicant::getVideoFrameCount(filename);
   if (frameCount == -1) {
     result["error"] = "Failed to load video";
     return result;
   }
 
-  result["frame_count"] = frameCount;
-
-  double fps = vidicant::getVideoFPS(filename);
-  result["fps"] = fps;
-
-  auto [vWidth, vHeight] = vidicant::getVideoResolution(filename);
-  result["width"] = vWidth;
-  result["height"] = vHeight;
-
-  double duration = vidicant::getVideoDuration(filename);
-  result["duration_seconds"] = duration;
-
-  // Advanced video processing
+  // Extract and save the first frame (not part of VideoMetrics).
   cv::Mat firstFrame = vidicant::extractFirstFrame(filename);
   if (!firstFrame.empty()) {
     result["first_frame_extracted"] = true;
@@ -127,13 +107,6 @@ nlohmann::json processVideo(const std::string &filename) {
     result["first_frame_extracted"] = false;
   }
 
-  double videoBrightness = vidicant::getVideoAverageBrightness(filename);
-  result["average_brightness"] = videoBrightness;
-
-  bool videoGrayscale = vidicant::isVideoGrayscale(filename);
-  result["is_grayscale"] = videoGrayscale;
-
-  // Save first frame as image
   std::filesystem::path videoPath(filename);
   std::string imageOutput = videoPath.stem().string() + "_first_frame.jpg";
   bool saved = vidicant::saveFirstFrameAsImage(filename, imageOutput);
@@ -142,29 +115,41 @@ nlohmann::json processVideo(const std::string &filename) {
     result["first_frame_path"] = imageOutput;
   }
 
-  // Motion score
-  double motionScore = vidicant::getVideoMotionScore(filename);
-  result["motion_score"] = motionScore;
+  // Compute all remaining metrics in a single pass via VideoMetrics.
+  VideoMetrics m = vidicant::getVideoMetrics(filename);
 
-  // Dominant colors from video
-  auto videoColors = vidicant::getVideoDominantColors(filename);
+  result["frame_count"] = m.frame_count;
+  result["fps"] = m.fps;
+  result["width"] = m.width;
+  result["height"] = m.height;
+  result["duration_seconds"] = m.duration;
+  result["average_brightness"] = m.average_brightness;
+  result["is_grayscale"] = m.is_grayscale;
+  result["motion_score"] = m.motion_score;
+
   result["dominant_colors"] = nlohmann::json::array();
-  for (size_t i = 0; i < videoColors.size(); ++i) {
-    result["dominant_colors"].push_back(
-        {videoColors[i][0], videoColors[i][1], videoColors[i][2]});
+  for (const auto &color : m.dominant_colors) {
+    result["dominant_colors"].push_back({color[0], color[1], color[2]});
   }
 
-  // Scene change detection
   auto sceneChanges = vidicant::detectVideoSceneChanges(filename);
   result["scene_changes"] = sceneChanges;
 
-  // Frame rate stability
-  double frStability = vidicant::getVideoFrameRateStability(filename);
-  result["frame_rate_stability"] = frStability;
+  result["frame_rate_stability"] = m.frame_rate_stability;
+  result["color_consistency"] = m.color_consistency;
+  result["optical_flow_magnitude"] = m.optical_flow_magnitude;
+  result["has_audio_track"] = m.has_audio_track;
 
-  // Color consistency
-  double colorConsistency = vidicant::getVideoColorConsistency(filename);
-  result["color_consistency"] = colorConsistency;
+  result["shot_length_stats"] = {{"mean", m.shot_length_stats.mean},
+                                 {"stddev", m.shot_length_stats.stddev},
+                                 {"min", m.shot_length_stats.min},
+                                 {"max", m.shot_length_stats.max},
+                                 {"count", m.shot_length_stats.count}};
+
+  result["flicker_score"] = m.flicker_score;
+  result["best_thumbnail_frame"] = m.best_thumbnail_frame;
+  result["temporal_brightness_curve"] = m.temporal_brightness_curve;
+  result["codec_fourcc"] = m.codec_fourcc;
 
   return result;
 }

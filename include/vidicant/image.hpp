@@ -10,14 +10,48 @@
 #define VIDICANT_IMAGE_HPP
 
 #include <array>
+#include <cstdint>
 #include <memory>
+#include <opencv2/core.hpp>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
-namespace cv {
-class Mat;
-} // namespace cv
+// Struct: TextureFeatures
+// Gray-level co-occurrence matrix (GLCM) derived texture metrics.
+struct TextureFeatures {
+  double contrast;    // Measures local intensity variations.
+  double energy;      // Sum of squared elements (texture uniformity).
+  double homogeneity; // Closeness of the distribution to the GLCM diagonal.
+  double correlation; // Linear dependency of gray-level pairs.
+};
+
+// Struct: ImageMetrics
+// Aggregates all per-image analysis results into a single object.
+struct ImageMetrics {
+  int width;
+  int height;
+  bool is_grayscale;
+  double average_brightness;
+  int channels;
+  int edge_count;
+  std::vector<std::array<double, 3>> dominant_colors;
+  double blur_score;
+  double contrast_ratio;
+  double saturation_level;
+  std::vector<std::vector<int>> histogram;
+  double aspect_ratio;
+  double entropy;
+  double noise_estimate;
+  double symmetry_score;
+  TextureFeatures texture;
+  uint64_t perceptual_hash;
+  double white_balance_score;
+  std::vector<int> hue_histogram;
+  double sharpness_score;
+  std::string noise_type;
+};
 
 // Class: IImageLoader
 // Abstract interface for image loading operations.
@@ -48,11 +82,16 @@ public:
 //
 // This class provides various methods to analyze images, including
 // dimension retrieval, color analysis, edge detection, and blur scoring.
-// It uses a loader object to load images internally.
+// It uses a loader object to load images internally and caches loaded images
+// to avoid redundant I/O when multiple analyses are run on the same file.
 class ImageHandler {
 private:
   std::unique_ptr<IImageLoader>
       loader_; // Pointer to the image loader implementation.
+  std::unordered_map<std::string, cv::Mat> cache_; // Per-instance image cache.
+
+  // Loads an image via the loader and caches the result for reuse.
+  cv::Mat loadCached(const std::string &filename);
 
 public:
   // Constructs an ImageHandler with the specified loader.
@@ -94,6 +133,40 @@ public:
 
   // Calculates the entropy (information content) of the image.
   double getImageEntropy(const std::string &filename);
+
+  // Estimates noise level using the Immerkær Laplacian-based formula.
+  double getNoiseEstimate(const std::string &filename);
+
+  // Measures bilateral symmetry via histogram correlation of image halves.
+  double getSymmetryScore(const std::string &filename);
+
+  // Computes GLCM-based texture features (contrast, energy, homogeneity,
+  // correlation).
+  TextureFeatures getTextureFeatures(const std::string &filename);
+
+  // Computes a 64-bit difference hash (dHash) for near-duplicate detection.
+  uint64_t getPerceptualHash(const std::string &filename);
+
+  // Estimates white balance quality: returns max channel deviation from the
+  // scene mean (0 = perfect balance, higher = stronger color cast).
+  double getWhiteBalanceScore(const std::string &filename);
+
+  // Returns a 36-bin hue histogram (5-degree bins over the HSV hue channel).
+  std::vector<int> getHueHistogram(const std::string &filename);
+
+  // Calculates mean Sobel gradient magnitude as a sharpness measure.
+  double getSharpnessScore(const std::string &filename);
+
+  // Computes the Structural Similarity Index (SSIM) between two images.
+  // Returns a value in [-1, 1] where 1 means identical.
+  double compareImages(const std::string &filename1,
+                       const std::string &filename2);
+
+  // Classifies the dominant noise type as "gaussian" or "salt_and_pepper".
+  std::string getNoiseType(const std::string &filename);
+
+  // Returns an ImageMetrics struct populated with all analyses for the file.
+  ImageMetrics getMetrics(const std::string &filename);
 };
 
 // Namespace: vidicant
@@ -139,6 +212,41 @@ double getImageAspectRatio(const std::string &filename);
 
 // Convenience function to get image entropy.
 double getImageEntropy(const std::string &filename);
+
+// Convenience function to get noise estimate.
+double getImageNoiseEstimate(const std::string &filename);
+
+// Convenience function to get symmetry score.
+double getImageSymmetryScore(const std::string &filename);
+
+// Convenience function to get GLCM texture features.
+TextureFeatures getImageTextureFeatures(const std::string &filename);
+
+// Convenience function to get perceptual hash.
+uint64_t getImagePerceptualHash(const std::string &filename);
+
+// Convenience function to get white balance score.
+double getImageWhiteBalanceScore(const std::string &filename);
+
+// Convenience function to get hue histogram.
+std::vector<int> getImageHueHistogram(const std::string &filename);
+
+// Convenience function to get sharpness score.
+double getImageSharpnessScore(const std::string &filename);
+
+// Convenience function to compare two images via SSIM.
+double compareImages(const std::string &filename1,
+                     const std::string &filename2);
+
+// Convenience function to classify noise type.
+std::string getImageNoiseType(const std::string &filename);
+
+// Convenience function to get all image metrics at once.
+ImageMetrics getImageMetrics(const std::string &filename);
+
+// Processes a batch of image files in parallel and returns their metrics.
+std::vector<ImageMetrics>
+getBatchImageMetrics(const std::vector<std::string> &filenames);
 
 } // namespace vidicant
 

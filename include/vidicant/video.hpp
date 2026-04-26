@@ -9,6 +9,7 @@
 #ifndef VIDICANT_VIDEO_HPP
 #define VIDICANT_VIDEO_HPP
 
+#include <array>
 #include <memory>
 #include <opencv2/core.hpp>
 #include <opencv2/videoio.hpp>
@@ -19,6 +20,39 @@
 namespace cv {
 class Mat;
 } // namespace cv
+
+// Struct: ShotLengthStats
+// Statistics over shot (scene segment) durations in a video, in frames.
+struct ShotLengthStats {
+  double mean;   // Average shot length in frames.
+  double stddev; // Standard deviation of shot lengths.
+  double min;    // Shortest shot in frames.
+  double max;    // Longest shot in frames.
+  int count;     // Total number of shots.
+};
+
+// Struct: VideoMetrics
+// Aggregates all per-video analysis results into a single object.
+struct VideoMetrics {
+  int frame_count;
+  double fps;
+  int width;
+  int height;
+  double duration;
+  bool is_grayscale;
+  double average_brightness;
+  double motion_score;
+  std::vector<std::array<double, 3>> dominant_colors;
+  double frame_rate_stability;
+  double color_consistency;
+  double optical_flow_magnitude;
+  bool has_audio_track;
+  ShotLengthStats shot_length_stats;
+  double flicker_score;
+  int best_thumbnail_frame;
+  std::vector<double> temporal_brightness_curve;
+  std::string codec_fourcc;
+};
 
 // Class: IVideoLoader
 // Abstract interface for video loading and frame reading operations.
@@ -45,6 +79,9 @@ public:
 
   // Reads the next frame from the video.
   virtual cv::Mat readFrame() = 0;
+
+  // Retrieves a raw VideoCapture property by ID (default: -1.0 if unsupported).
+  virtual double getProperty(int /*propId*/) { return -1.0; }
 };
 
 // Class: OpenCVVideoLoader
@@ -69,6 +106,9 @@ public:
 
   // Reads the next frame using OpenCV.
   cv::Mat readFrame() override;
+
+  // Retrieves a VideoCapture property by ID.
+  double getProperty(int propId) override;
 
 private:
   cv::VideoCapture cap_; // OpenCV VideoCapture object for video operations.
@@ -148,6 +188,48 @@ public:
   // Calculates color consistency across frames.
   // @return Color consistency score (higher means more consistent).
   double getColorConsistency();
+
+  // Calculates optical flow magnitude using Farneback dense optical flow.
+  // @return Mean flow magnitude over sampled frame pairs (higher = more motion
+  // detail).
+  double getOpticalFlowMagnitude();
+
+  // Checks whether the video contains an audio track.
+  // @return True if an audio track is detected.
+  bool hasAudioTrack();
+
+  // Returns statistics on shot (scene segment) lengths in frames.
+  // @param threshold Mean pixel difference threshold for scene change
+  // detection.
+  // @return ShotLengthStats with mean, stddev, min, max, and count.
+  ShotLengthStats getShotLengthStats(double threshold = 30.0);
+
+  // Measures flicker intensity as the standard deviation of frame-to-frame
+  // brightness changes.
+  // @return Flicker score (higher = more flickering).
+  double getFlickerScore();
+
+  // Returns the index of the highest-quality frame among sampled frames.
+  // Quality is scored by sharpness (Laplacian variance) × brightness penalty.
+  // @return 0-based frame index in the video stream.
+  int getBestThumbnailIndex();
+
+  // Returns per-frame brightness values as a time series (up to 100 frames).
+  // @return Vector of brightness values.
+  std::vector<double> getTemporalBrightnessCurve();
+
+  // Returns the codec FOURCC string (e.g. "mp4v", "avc1").
+  // @return 4-character codec identifier, or empty string on failure.
+  std::string getCodecFourcc();
+
+  // Computes a similarity score between this video and another via
+  // Bhattacharyya histogram distance on sampled frames.
+  // @param otherFilename Path to the second video.
+  // @return Similarity in [0, 1] (1 = most similar), or -1 on error.
+  double compareVideos(const std::string &otherFilename);
+
+  // Returns a VideoMetrics struct populated with all analyses.
+  VideoMetrics getMetrics();
 };
 
 // Namespace: vidicant
@@ -198,6 +280,36 @@ double getVideoFrameRateStability(const std::string &filename);
 
 // Convenience function to get color consistency.
 double getVideoColorConsistency(const std::string &filename);
+
+// Convenience function to get optical flow magnitude.
+double getVideoOpticalFlowMagnitude(const std::string &filename);
+
+// Convenience function to check for audio track.
+bool videoHasAudioTrack(const std::string &filename);
+
+// Convenience function to get shot length statistics.
+ShotLengthStats getVideoShotLengthStats(const std::string &filename,
+                                        double threshold = 30.0);
+
+// Convenience function to get flicker score.
+double getVideoFlickerScore(const std::string &filename);
+
+// Convenience function to get best thumbnail frame index.
+int getVideoBestThumbnailIndex(const std::string &filename);
+
+// Convenience function to get temporal brightness curve.
+std::vector<double>
+getVideoTemporalBrightnessCurve(const std::string &filename);
+
+// Convenience function to get codec FOURCC string.
+std::string getVideoCodecFourcc(const std::string &filename);
+
+// Convenience function to compare two videos.
+double compareVideos(const std::string &filename1,
+                     const std::string &filename2);
+
+// Convenience function to get all video metrics at once.
+VideoMetrics getVideoMetrics(const std::string &filename);
 
 } // namespace vidicant
 
