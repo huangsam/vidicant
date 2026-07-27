@@ -29,7 +29,7 @@ print(f"Motion: {result['motion_score']}")
 zig build
 
 # Run the native binary
-./zig-out/bin/vidicant_cli --image photo.jpg --video video.mp4
+./zig-out/bin/vidicant_cli --image examples/sample.jpg --video examples/sample.mp4
 ```
 
 ## Features
