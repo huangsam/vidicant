@@ -102,7 +102,10 @@ def test_analyzing_videos():
     assert isinstance(result["fps"], (int, float)) and result["fps"] > 0
     assert isinstance(result["width"], int) and result["width"] > 0
     assert isinstance(result["height"], int) and result["height"] > 0
-    assert isinstance(result["duration_seconds"], (int, float)) and result["duration_seconds"] > 0
+    assert (
+        isinstance(result["duration_seconds"], (int, float))
+        and result["duration_seconds"] > 0
+    )
     assert 0 <= result["average_brightness"] <= 255
     assert isinstance(result["is_grayscale"], bool)
     assert isinstance(result["motion_score"], (int, float))

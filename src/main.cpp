@@ -29,9 +29,13 @@ int main(int argc, char *argv[]) {
   // Parse command line arguments
   for (int i = 1; i < argc; ++i) {
     std::string arg = argv[i];
-    if (arg == "--output" && i + 1 < argc) {
+    if ((arg == "--output" || arg == "-o") && i + 1 < argc) {
       outputFile = argv[++i];
-    } else {
+    } else if ((arg == "--image" || arg == "-i" || arg == "--video" ||
+                arg == "-v") &&
+               i + 1 < argc) {
+      inputFiles.push_back(argv[++i]);
+    } else if (arg.rfind("-", 0) != 0) {
       inputFiles.push_back(arg);
     }
   }

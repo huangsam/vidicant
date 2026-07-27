@@ -23,25 +23,22 @@ print(f"Duration: {result['duration_seconds']}s")
 print(f"Motion: {result['motion_score']}")
 ```
 
-**For C++ users:**
+**For Native / CLI users:**
 ```bash
-# Build the library
-cmake -S . -B build
-cmake --build build
+# Build with Zig
+zig build
 
-# Run the binary
-./build/vidicant_cli image.jpg video.mp4
-
-# You can also use the C++ API for your own projects too
+# Run the native binary
+./zig-out/bin/vidicant_cli --image photo.jpg --video video.mp4
 ```
 
 ## Features
 
 - **Image Analysis**: Dimensions, brightness, color analysis, edge detection, blur scoring
 - **Video Analysis**: Frame count, FPS, resolution, duration, motion detection
-- **Cross-platform**: Windows, macOS, Linux support
-- **Python Integration**: Full Python bindings via pybind11
-- **CLI Tool**: Command-line interface for quick analysis
+- **Cross-platform**: Windows, macOS, Linux support via Zig toolchain
+- **Python Integration**: C-ABI Python extension layer via ctypes
+- **CLI Tool**: Native command-line interface for quick analysis
 
 ## Documentation
 

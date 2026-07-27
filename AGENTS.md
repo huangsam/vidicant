@@ -92,25 +92,25 @@ While this is primarily a demonstration project, potential extensions include:
 
 ## Python Bindings Implementation
 
-The C++ core is exposed to Python via pybind11, allowing broader adoption and integration into data science workflows:
+The C++ core is exposed to Python via a clean C-ABI and Python's built-in `ctypes`, allowing broader adoption and integration into data science workflows with zero external build dependencies:
 
 ### Architecture
 - **C++ Layer** (`src/controller.cpp`): Core media analysis using OpenCV
-- **Binding Layer** (`src/vidicant_py.cpp`): pybind11 module exposing C++ functions
-- **Python Package** (`vidicant/`): User-facing Python API
-- **Build Integration** (`pyproject.toml`): scikit-build-core handles CMake/pip integration
+- **C-ABI Wrapper** (`src/vidicant_c_api.cpp`): Clean `extern "C"` functions returning JSON strings
+- **Python Driver** (`vidicant/binding.py`): Zero-dependency `ctypes` wrapper loading `libvidicant.dylib`/`.so`/`.dll`
+- **Build System** (`build.zig`): Hermetic Zig build script compiling C++ and linking OpenCV natively
 
 ### Key Technical Decisions
-- **pybind11 v3.0.1** fetched via CMake FetchContent (self-contained, portable)
-- **Compiled extension module** (`.so`) provides native performance
-- **FetchContent** instead of system packages enables cross-platform distribution
-- **Position-independent code** (-fPIC) for linking into shared libraries
+- **Zig 0.16 build system** replaces CMake, providing multi-platform cross-compilation out of the box
+- **C-ABI (`ctypes`)** replaces `pybind11`, avoiding Python minor version coupling and enabling Python Stable ABI compatibility
+- **No Docker required**: Compiles natively on macOS/Linux/Windows in seconds against Homebrew OpenCV or system libraries
 
 ### Usage Pattern
-Users can analyze media in Python with automatic type conversion (C++ types ↔ Python dicts):
+Users can analyze media in Python with automatic JSON type conversion (C++ metrics ↔ Python dicts):
 
 ```python
 import vidicant
+
 result = vidicant.process_image("photo.jpg")  # Returns dict with metrics
 result = vidicant.process_video("video.mp4")  # Returns video analysis
 ```

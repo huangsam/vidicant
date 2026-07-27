@@ -6,11 +6,9 @@ This document is for developers who want to build, develop, or contribute to Vid
 
 ### Prerequisites
 
-- CMake 3.24+
-- C++17 compatible compiler (GCC 11+, Clang 12+)
-- OpenCV 4.x development libraries (`libopencv-dev`)
-- GTest (`libgtest-dev`)
-- pybind11 (automatically fetched via CMake FetchContent)
+- Zig compiler (v0.16+)
+- OpenCV 4.x/5.x development libraries (e.g. `brew install opencv` on macOS or `libopencv-dev` on Linux)
+- C++17 compatible compiler toolchain (driven by Zig)
 
 ### Building from Source
 
@@ -19,17 +17,14 @@ This document is for developers who want to build, develop, or contribute to Vid
 git clone <repository-url>
 cd vidicant
 
-# Configure CMake
-cmake -S . -B build
+# Build executable CLI and shared library via Zig
+zig build
 
-# Build the project
-cmake --build build
+# Run the native CLI binary
+./zig-out/bin/vidicant_cli --image examples/sample.jpg --video examples/sample.mp4
 
-# Run all tests
-ctest --test-dir build
-
-# Run with verbose output
-ctest --test-dir build -V
+# Run end-to-end Python test suite
+PYTHONPATH=. python3 e2e.py
 ```
 
 ## Code Formatting
@@ -42,7 +37,7 @@ find src test include \( -name '*.cpp' -o -name '*.hpp' \) | xargs clang-format 
 
 ## C++ Library Usage
 
-The core functionality is available as a C++ library:
+The core functionality is available as a C++ library or via C-ABI:
 
 ```cpp
 #include "vidicant/image.hpp"
@@ -66,55 +61,36 @@ Vidicant uses an interface-based design for extensibility:
 - `IImageLoader` / `IVideoLoader`: Abstract interfaces for media loading
 - `OpenCVImageLoader` / `OpenCVVideoLoader`: OpenCV-based implementations
 - `ImageHandler` / `VideoHandler`: High-level analysis classes
-- Convenience functions in the `vidicant` namespace for easy usage
+- `vidicant_c_api.cpp`: Clean `extern "C"` C-ABI wrapper layer for multi-language extensions
 
 This design allows swapping backends or adding new analysis methods without changing the API.
 
-## Testing
-
-The project includes comprehensive unit tests:
-
-```bash
-# Run all tests
-ctest --test-dir build
-
-# Run specific test
-ctest --test-dir build -R test_image -V
-
-# Run with coverage (if available)
-ctest --test-dir build --coverage
-```
-
 ## Python Bindings
 
-Vidicant is also available as a Python package via pybind11. See [USERGUIDE.md](USERGUIDE.md) and [AGENTS.md](AGENTS.md#python-bindings-implementation) for details.
+Vidicant provides a zero-dependency Python package using Python's built-in `ctypes` over the native C-ABI (`libvidicant.dylib` / `.so` / `.dll`). See [USERGUIDE.md](USERGUIDE.md) and [AGENTS.md](AGENTS.md#python-bindings-implementation) for details.
 
-To rebuild the Python extension during development:
+To test the Python extension during development:
 
 ```bash
-pip install -e . --break-system-packages
+PYTHONPATH=. python3 e2e.py
 ```
 
 ## Dependency Management
 
-### System Dependencies (apt)
+### System Dependencies
 
 ```bash
-sudo apt install libopencv-dev libgtest-dev nlohmann-json3-dev
+# macOS
+brew install opencv
+
+# Linux (Debian/Ubuntu)
+sudo apt install libopencv-dev
 ```
 
 ### Build Dependencies
 
-- **pybind11**: Automatically fetched via CMake FetchContent (v3.0.1)
-- **scikit-build-core**: Required for Python packaging (`pip install scikit-build-core`)
-
-## DevContainer
-
-This project includes a DevContainer configuration. To use it:
-
-1. Open in VS Code with the Remote Containers extension
-2. Click "Reopen in Container"
-3. All dependencies are automatically installed
+- **Zig**: `zig build` acts as compiler driver, linker, and build orchestrator.
+- **Python**: Standard `ctypes` (built into Python 3.8+) loads the native C-ABI shared library.
 
 ## Performance Optimization
 

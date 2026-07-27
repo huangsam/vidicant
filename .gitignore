@@ -32,3 +32,7 @@ venv/
 *.pyo
 *.so
 *$py.class
+
+# Zig
+zig-out/
+.zig-cache/

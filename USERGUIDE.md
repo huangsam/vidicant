@@ -28,9 +28,9 @@ pip install vidicant
 import vidicant
 
 # Check what you can analyze
-vidicant.is_image_file("photo.jpg")    # True
-vidicant.is_image_file("video.mp4")    # False
-vidicant.is_video_file("video.mp4")    # True
+vidicant.is_image_file("photo.jpg")  # True
+vidicant.is_image_file("video.mp4")  # False
+vidicant.is_video_file("video.mp4")  # True
 ```
 
 ### Analyzing Images
@@ -99,19 +99,19 @@ Analyze an image file and return metrics.
 **Returns:**
 ```python
 {
-    "width": int,                    # Image width in pixels
-    "height": int,                   # Image height in pixels
-    "aspect_ratio": float,           # Width/height ratio
-    "is_grayscale": bool,            # True if image is grayscale
-    "average_brightness": float,     # Mean brightness (0-255)
-    "channels": int,                 # Number of color channels (1 or 3)
-    "edge_count": int,               # Estimated number of edges detected
-    "dominant_colors": list[list],   # Top 3 colors [[R,G,B], ...]
-    "blur_score": float,             # Sharpness metric (higher = sharper)
-    "contrast_ratio": float,         # Dynamic range (max/min intensity)
-    "saturation_level": float,       # Average color saturation (0-255)
-    "entropy": float,                # Information content (0-8 bits)
-    "histogram": list[list]          # RGB channel histograms [256 bins each]
+    "width": int,  # Image width in pixels
+    "height": int,  # Image height in pixels
+    "aspect_ratio": float,  # Width/height ratio
+    "is_grayscale": bool,  # True if image is grayscale
+    "average_brightness": float,  # Mean brightness (0-255)
+    "channels": int,  # Number of color channels (1 or 3)
+    "edge_count": int,  # Estimated number of edges detected
+    "dominant_colors": list[list],  # Top 3 colors [[R,G,B], ...]
+    "blur_score": float,  # Sharpness metric (higher = sharper)
+    "contrast_ratio": float,  # Dynamic range (max/min intensity)
+    "saturation_level": float,  # Average color saturation (0-255)
+    "entropy": float,  # Information content (0-8 bits)
+    "histogram": list[list],  # RGB channel histograms [256 bins each]
 }
 ```
 
@@ -121,18 +121,18 @@ Analyze a video file and return metrics.
 **Returns:**
 ```python
 {
-    "frame_count": int,              # Total number of frames
-    "fps": float,                    # Frames per second
-    "width": int,                    # Video width in pixels
-    "height": int,                   # Video height in pixels
-    "duration_seconds": float,       # Video duration in seconds
-    "average_brightness": float,     # Mean brightness across frames
-    "is_grayscale": bool,            # True if video is grayscale
-    "motion_score": float,           # Motion intensity (higher = more motion)
-    "dominant_colors": list[list],   # Top dominant colors across frames
-    "scene_changes": list[int],      # Frame indices where scene changes occur
-    "frame_rate_stability": float,   # Frame rate consistency (lower = more stable)
-    "color_consistency": float       # Color stability across frames (lower = more consistent)
+    "frame_count": int,  # Total number of frames
+    "fps": float,  # Frames per second
+    "width": int,  # Video width in pixels
+    "height": int,  # Video height in pixels
+    "duration_seconds": float,  # Video duration in seconds
+    "average_brightness": float,  # Mean brightness across frames
+    "is_grayscale": bool,  # True if video is grayscale
+    "motion_score": float,  # Motion intensity (higher = more motion)
+    "dominant_colors": list[list],  # Top dominant colors across frames
+    "scene_changes": list[int],  # Frame indices where scene changes occur
+    "frame_rate_stability": float,  # Frame rate consistency (lower = more stable)
+    "color_consistency": float,  # Color stability across frames (lower = more consistent)
 }
 ```
 
@@ -161,13 +161,18 @@ print(df[["filename", "average_brightness", "blur_score"]])
 ```python
 import vidicant
 
+
 def check_quality(filename):
     r = vidicant.process_image(filename)
     issues = []
-    if r["blur_score"] < 0.5: issues.append("blurry")
-    if r["average_brightness"] > 240: issues.append("overexposed")
-    if r["average_brightness"] < 20: issues.append("underexposed")
+    if r["blur_score"] < 0.5:
+        issues.append("blurry")
+    if r["average_brightness"] > 240:
+        issues.append("overexposed")
+    if r["average_brightness"] < 20:
+        issues.append("underexposed")
     return "PASS" if not issues else f"FAIL: {', '.join(issues)}"
+
 
 for img in ["photo1.jpg", "photo2.jpg"]:
     print(f"{img}: {check_quality(img)}")
