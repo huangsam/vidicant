@@ -41,8 +41,13 @@ py::object json_to_python(const nlohmann::json &j) {
 }
 
 // Wrapper for processImage that returns Python dict
-py::object process_image_wrapper(const std::string &filename) {
-  nlohmann::json result = processImage(filename);
+py::object process_image_wrapper(const std::string &filename,
+                                 const std::string &model_path = "",
+                                 const std::string &task = "quality",
+                                 int top_k = 5, float conf_threshold = 0.5f,
+                                 float nms_threshold = 0.4f) {
+  nlohmann::json result = processImage(filename, model_path, task, top_k,
+                                       conf_threshold, nms_threshold);
   return json_to_python(result);
 }
 
@@ -65,7 +70,9 @@ PYBIND11_MODULE(vidicant_py, m) {
   // Bind main processing functions with wrappers that convert JSON to Python
   m.def("process_image", &process_image_wrapper,
         "Process an image file and return analysis results as a dictionary",
-        py::arg("filename"));
+        py::arg("filename"), py::arg("model_path") = "",
+        py::arg("task") = "quality", py::arg("top_k") = 5,
+        py::arg("conf_threshold") = 0.5f, py::arg("nms_threshold") = 0.4f);
 
   m.def("process_video", &process_video_wrapper,
         "Process a video file and return analysis results as a dictionary",

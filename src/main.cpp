@@ -28,6 +28,10 @@ int main(int argc, char *argv[]) {
 
   std::string outputFile = "results.json";
   std::string modelPath = "";
+  std::string task = "quality";
+  int topK = 5;
+  float confThreshold = 0.5f;
+  float nmsThreshold = 0.4f;
   bool enableMl = false;
   std::vector<std::string> inputFiles;
 
@@ -40,6 +44,15 @@ int main(int argc, char *argv[]) {
                i + 1 < argc) {
       modelPath = argv[++i];
       enableMl = true;
+    } else if (arg == "--task" && i + 1 < argc) {
+      task = argv[++i];
+      enableMl = true;
+    } else if (arg == "--top-k" && i + 1 < argc) {
+      topK = std::stoi(argv[++i]);
+    } else if (arg == "--conf-threshold" && i + 1 < argc) {
+      confThreshold = std::stof(argv[++i]);
+    } else if (arg == "--nms-threshold" && i + 1 < argc) {
+      nmsThreshold = std::stof(argv[++i]);
     } else if (arg == "--enable-ml") {
       enableMl = true;
     } else if ((arg == "--image" || arg == "-i" || arg == "--video" ||
@@ -56,9 +69,15 @@ int main(int argc, char *argv[]) {
   if (enableMl && modelPath.empty()) {
     const char *home = std::getenv("HOME");
     if (home) {
+      std::string defaultModelName = "aesthetic_mobilenetv2.onnx";
+      if (task == "classify") {
+        defaultModelName = "mobilenetv2_imagenet.onnx";
+      } else if (task == "detect") {
+        defaultModelName = "yunet_face_detection.onnx";
+      }
       std::filesystem::path defaultModel = std::filesystem::path(home) /
                                            ".cache" / "vidicant" / "models" /
-                                           "aesthetic_mobilenetv2.onnx";
+                                           defaultModelName;
       if (std::filesystem::exists(defaultModel)) {
         modelPath = defaultModel.string();
       }
@@ -77,7 +96,8 @@ int main(int argc, char *argv[]) {
 
     if (isImageFile(filename)) {
       std::cout << "Processing image: " << filename << std::endl;
-      auto imageResult = processImage(filename, modelPath);
+      auto imageResult = processImage(filename, modelPath, task, topK,
+                                      confThreshold, nmsThreshold);
       results["images"].push_back(imageResult);
     } else if (isVideoFile(filename)) {
       std::cout << "Processing video: " << filename << std::endl;

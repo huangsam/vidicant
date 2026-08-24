@@ -130,12 +130,15 @@ bool isVideoFile(const std::string &filename) {
 
 // Function to process an image file
 nlohmann::json processImage(const std::string &filename,
-                            const std::string &model_path) {
+                            const std::string &model_path,
+                            const std::string &task, int top_k,
+                            float conf_threshold, float nms_threshold) {
   nlohmann::json result;
   result["filename"] = filename;
 
   // Load and analyse the image once via a single ImageHandler.
-  ImageMetrics m = vidicant::getImageMetrics(filename, model_path);
+  ImageMetrics m = vidicant::getImageMetrics(filename, model_path, task, top_k,
+                                             conf_threshold, nms_threshold);
   if (m.width == -1) {
     result["error"] = "Failed to load image";
     return result;
@@ -173,9 +176,34 @@ nlohmann::json processImage(const std::string &filename,
   result["sharpness_score"] = m.sharpness_score;
   result["noise_type"] = m.noise_type;
 
+  result["top_labels"] = nlohmann::json::array();
+  for (const auto &lbl : m.top_labels) {
+    result["top_labels"].push_back({
+        {"class_id", lbl.class_id},
+        {"label", lbl.label},
+        {"confidence", lbl.confidence},
+    });
+  }
+
+  result["detected_objects"] = nlohmann::json::array();
+  for (const auto &obj : m.detected_objects) {
+    result["detected_objects"].push_back({
+        {"box", {obj.box.x, obj.box.y, obj.box.width, obj.box.height}},
+        {"class_name", obj.class_name},
+        {"confidence", obj.confidence},
+    });
+  }
+
+  result["embedding"] = m.embedding;
+
   if (m.ml_evaluated) {
-    result["aesthetic_score"] = m.aesthetic_score;
-    result["technical_quality_score"] = m.technical_quality_score;
+    result["aesthetic_score"] = (m.aesthetic_score >= 0.0)
+                                    ? nlohmann::json(m.aesthetic_score)
+                                    : nlohmann::json(nullptr);
+    result["technical_quality_score"] =
+        (m.technical_quality_score >= 0.0)
+            ? nlohmann::json(m.technical_quality_score)
+            : nlohmann::json(nullptr);
     result["ml_evaluated"] = true;
   } else {
     result["aesthetic_score"] = nullptr;

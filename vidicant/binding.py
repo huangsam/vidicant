@@ -48,6 +48,16 @@ _lib.vidicant_process_image.restype = ctypes.c_void_p
 _lib.vidicant_process_image_ml.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
 _lib.vidicant_process_image_ml.restype = ctypes.c_void_p
 
+_lib.vidicant_process_image_dnn.argtypes = [
+    ctypes.c_char_p,
+    ctypes.c_char_p,
+    ctypes.c_char_p,
+    ctypes.c_int,
+    ctypes.c_float,
+    ctypes.c_float,
+]
+_lib.vidicant_process_image_dnn.restype = ctypes.c_void_p
+
 _lib.vidicant_process_video.argtypes = [ctypes.c_char_p]
 _lib.vidicant_process_video.restype = ctypes.c_void_p
 
@@ -68,20 +78,35 @@ def is_video_file(filename: str) -> bool:
 def process_image(
     filename: str,
     enable_ml: bool = False,
+    task: str = "quality",
     model_path: str | None = None,
+    top_k: int = 5,
+    conf_threshold: float = 0.5,
+    nms_threshold: float = 0.4,
 ) -> dict:
     """Process an image file and return analysis metrics as a dictionary.
 
     Args:
         filename: Path to the image file.
-        enable_ml: If True, evaluates aesthetic and technical quality via ONNX/DNN.
+        enable_ml: If True, evaluates neural network model via ONNX/DNN.
+        task: Neural task type ("quality", "classify", "detect", "embed", "auto").
         model_path: Optional custom path to an ONNX model file or URL. If None and
-                    enable_ml is True, uses the cached default aesthetic model.
+                    enable_ml is True, uses the cached default model for the task.
+        top_k: Number of top classification labels to retrieve (for task="classify").
+        conf_threshold: Minimum confidence score for detection (for task="detect").
+        nms_threshold: Non-Maximum Suppression IoU threshold (for task="detect").
     """
     if enable_ml or model_path:
-        resolved = ensure_model(model_path)
+        resolved = ensure_model(model_path, task=task)
         if resolved:
-            raw_ptr = _lib.vidicant_process_image_ml(filename.encode("utf-8"), resolved.encode("utf-8"))
+            raw_ptr = _lib.vidicant_process_image_dnn(
+                filename.encode("utf-8"),
+                resolved.encode("utf-8"),
+                task.encode("utf-8"),
+                top_k,
+                conf_threshold,
+                nms_threshold,
+            )
         else:
             raw_ptr = _lib.vidicant_process_image(filename.encode("utf-8"))
     else:

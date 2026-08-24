@@ -27,6 +27,31 @@ struct TextureFeatures {
   double correlation; // Linear dependency of gray-level pairs.
 };
 
+// Struct: BoundingBox
+// 2D bounding box coordinates [x, y, width, height].
+struct BoundingBox {
+  float x{0.0f};
+  float y{0.0f};
+  float width{0.0f};
+  float height{0.0f};
+};
+
+// Struct: DetectedObject
+// An object or face detected by a neural network model.
+struct DetectedObject {
+  BoundingBox box;
+  std::string class_name;
+  float confidence{0.0f};
+};
+
+// Struct: ClassificationLabel
+// A classification label and its predicted probability.
+struct ClassificationLabel {
+  std::string label;
+  float confidence{0.0f};
+  int class_id{-1};
+};
+
 // Struct: ImageMetrics
 // Aggregates all per-image analysis results into a single object.
 struct ImageMetrics {
@@ -56,6 +81,11 @@ struct ImageMetrics {
   double technical_quality_score; // Technical quality score [0.0 - 1.0] (-1.0
                                   // if not evaluated).
   bool ml_evaluated;              // True if DNN model inference was executed.
+  std::vector<DetectedObject>
+      detected_objects; // Detected objects with boxes & confidences.
+  std::vector<ClassificationLabel>
+      top_labels;               // Top-K classification labels & confidences.
+  std::vector<float> embedding; // Raw flattened output embedding vector.
 };
 
 // Class: IImageLoader
@@ -176,9 +206,19 @@ public:
   std::pair<double, double> assessQualityDNN(const std::string &filename,
                                              const std::string &model_path);
 
+  // Runs DNN inference for a specified task ("quality", "classify", "detect",
+  // "embed", "auto") and populates neural fields in ImageMetrics.
+  void runDNNInference(const std::string &filename,
+                       const std::string &model_path, ImageMetrics &metrics,
+                       const std::string &task = "quality", int top_k = 5,
+                       float conf_threshold = 0.5f, float nms_threshold = 0.4f);
+
   // Returns an ImageMetrics struct populated with all analyses for the file.
   ImageMetrics getMetrics(const std::string &filename,
-                          const std::string &model_path = "");
+                          const std::string &model_path = "",
+                          const std::string &task = "quality", int top_k = 5,
+                          float conf_threshold = 0.5f,
+                          float nms_threshold = 0.4f);
 };
 
 // Namespace: vidicant
@@ -259,12 +299,17 @@ std::pair<double, double> assessImageQualityDNN(const std::string &filename,
 
 // Convenience function to get all image metrics at once.
 ImageMetrics getImageMetrics(const std::string &filename,
-                             const std::string &model_path = "");
+                             const std::string &model_path = "",
+                             const std::string &task = "quality", int top_k = 5,
+                             float conf_threshold = 0.5f,
+                             float nms_threshold = 0.4f);
 
 // Processes a batch of image files in parallel and returns their metrics.
 std::vector<ImageMetrics>
 getBatchImageMetrics(const std::vector<std::string> &filenames,
-                     const std::string &model_path = "");
+                     const std::string &model_path = "",
+                     const std::string &task = "quality", int top_k = 5,
+                     float conf_threshold = 0.5f, float nms_threshold = 0.4f);
 
 } // namespace vidicant
 

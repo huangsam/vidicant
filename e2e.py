@@ -137,8 +137,8 @@ def test_video_motion_detection():
     print()
 
 
-def _generate_test_onnx(path: str) -> None:
-    """Generate a valid, minimal 137-byte ONNX model (GlobalAveragePool) for active testing."""
+def _generate_test_onnx(path: str, channels: int = 3) -> None:
+    """Generate a valid, minimal ONNX model (GlobalAveragePool) for active testing."""
 
     def encode_varint(n: int) -> bytes:
         res = bytearray()
@@ -184,8 +184,8 @@ def _generate_test_onnx(path: str) -> None:
         return bytes(res)
 
     node = make_node(["data"], ["out"], "gap", "GlobalAveragePool")
-    inp = make_value_info("data", 1, [1, 3, 224, 224])
-    out = make_value_info("out", 1, [1, 3, 1, 1])
+    inp = make_value_info("data", 1, [1, channels, 224, 224])
+    out = make_value_info("out", 1, [1, channels, 1, 1])
 
     # GraphProto
     graph_bytes = bytearray()
@@ -216,6 +216,9 @@ def test_ml_quality_assessment():
     assert res_no_ml["ml_evaluated"] is False
     assert res_no_ml["aesthetic_score"] is None
     assert res_no_ml["technical_quality_score"] is None
+    assert res_no_ml["top_labels"] == []
+    assert res_no_ml["detected_objects"] == []
+    assert res_no_ml["embedding"] == []
 
     # 2. Non-existent model path should gracefully fallback
     res_bad_model = vidicant.process_image("examples/sample.jpg", enable_ml=True, model_path="nonexistent_model.onnx")
@@ -225,12 +228,14 @@ def test_ml_quality_assessment():
     # 3. Test model helper functions
     cache_path = vidicant.get_default_model_path()
     assert cache_path.name == "aesthetic_mobilenetv2.onnx"
+    assert vidicant.get_default_model_path("classify").name == "mobilenetv2_imagenet.onnx"
+    assert vidicant.get_default_model_path("detect").name == "yunet_face_detection.onnx"
 
     # 4. Active DNN execution test with dynamic ONNX fixture
-    temp_model = "test_fixture_model.onnx"
+    temp_model = "test_fixture_quality.onnx"
     try:
-        _generate_test_onnx(temp_model)
-        res_active = vidicant.process_image("examples/sample.jpg", enable_ml=True, model_path=temp_model)
+        _generate_test_onnx(temp_model, channels=3)
+        res_active = vidicant.process_image("examples/sample.jpg", enable_ml=True, model_path=temp_model, task="quality")
         assert res_active["ml_evaluated"] is True
         assert isinstance(res_active["aesthetic_score"], float)
         assert isinstance(res_active["technical_quality_score"], float)
@@ -242,7 +247,110 @@ def test_ml_quality_assessment():
         if os.path.exists(temp_model):
             os.remove(temp_model)
 
-    print("✓ ML quality assessment (both fallback and active inference) verified")
+    print("✓ ML quality assessment verified")
+    print()
+
+
+def test_semantic_classification():
+    """Test semantic classification and tagging (Top-K labels with confidences)."""
+    print("=" * 60)
+    print("TEST: Semantic Classification & Tagging")
+    print("=" * 60)
+
+    temp_model = "test_fixture_classify.onnx"
+    try:
+        _generate_test_onnx(temp_model, channels=3)
+        res = vidicant.process_image(
+            "examples/sample.jpg",
+            enable_ml=True,
+            task="classify",
+            model_path=temp_model,
+            top_k=2,
+        )
+        assert res["ml_evaluated"] is True
+        assert "top_labels" in res
+        assert isinstance(res["top_labels"], list)
+        assert len(res["top_labels"]) == 2
+
+        for item in res["top_labels"]:
+            assert "class_id" in item and isinstance(item["class_id"], int)
+            assert "label" in item and isinstance(item["label"], str)
+            assert "confidence" in item and isinstance(item["confidence"], float)
+            assert 0.0 <= item["confidence"] <= 1.0
+
+        # Verify sorted descending by confidence
+        assert res["top_labels"][0]["confidence"] >= res["top_labels"][1]["confidence"]
+        print(f"Top 2 Labels: {res['top_labels']}")
+    finally:
+        if os.path.exists(temp_model):
+            os.remove(temp_model)
+
+    print("✓ Semantic classification & tagging verified")
+    print()
+
+
+def test_object_and_face_detection():
+    """Test object and face detection with bounding boxes and NMS."""
+    print("=" * 60)
+    print("TEST: Object & Face Detection with NMS")
+    print("=" * 60)
+
+    temp_model = "test_fixture_detect.onnx"
+    try:
+        _generate_test_onnx(temp_model, channels=3)
+        res = vidicant.process_image(
+            "examples/sample.jpg",
+            enable_ml=True,
+            task="detect",
+            model_path=temp_model,
+            conf_threshold=0.1,
+            nms_threshold=0.4,
+        )
+        assert res["ml_evaluated"] is True
+        assert "detected_objects" in res
+        assert isinstance(res["detected_objects"], list)
+        assert len(res["detected_objects"]) == 1
+        for obj in res["detected_objects"]:
+            assert "box" in obj and isinstance(obj["box"], list) and len(obj["box"]) == 4
+            assert "class_name" in obj and isinstance(obj["class_name"], str)
+            assert "confidence" in obj and isinstance(obj["confidence"], float)
+            assert obj["confidence"] >= 0.1
+            print(f"Detected: {obj['class_name']} ({obj['confidence']:.2f}) at box {obj['box']}")
+    finally:
+        if os.path.exists(temp_model):
+            os.remove(temp_model)
+
+    print("✓ Object & face detection with NMS verified")
+    print()
+
+
+def test_generic_embeddings():
+    """Test generic ONNX tensor / vector embedding extractor."""
+    print("=" * 60)
+    print("TEST: Generic ONNX Vector Embeddings")
+    print("=" * 60)
+
+    temp_model = "test_fixture_embed.onnx"
+    try:
+        _generate_test_onnx(temp_model, channels=3)
+        res = vidicant.process_image(
+            "examples/sample.jpg",
+            enable_ml=True,
+            task="embed",
+            model_path=temp_model,
+        )
+        assert res["ml_evaluated"] is True
+        assert "embedding" in res
+        assert isinstance(res["embedding"], list)
+        assert len(res["embedding"]) == 3
+        for val in res["embedding"]:
+            assert isinstance(val, float)
+        print(f"Extracted embedding (length {len(res['embedding'])}): {res['embedding']}")
+    finally:
+        if os.path.exists(temp_model):
+            os.remove(temp_model)
+
+    print("✓ Generic ONNX vector embeddings verified")
     print()
 
 
@@ -272,6 +380,9 @@ def main():
         test_analyzing_videos()
         test_video_motion_detection()
         test_ml_quality_assessment()
+        test_semantic_classification()
+        test_object_and_face_detection()
+        test_generic_embeddings()
 
         print("=" * 60)
         print("✓ ALL TESTS PASSED!")

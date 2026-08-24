@@ -19,7 +19,10 @@ bool isVideoFile(const std::string &filename);
 
 // Function to process an image file and return JSON result
 nlohmann::json processImage(const std::string &filename,
-                            const std::string &model_path = "");
+                            const std::string &model_path = "",
+                            const std::string &task = "quality", int top_k = 5,
+                            float conf_threshold = 0.5f,
+                            float nms_threshold = 0.4f);
 
 // Function to process a video file and return JSON result
 nlohmann::json processVideo(const std::string &filename);
