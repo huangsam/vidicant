@@ -1,235 +1,202 @@
 # Vidicant User Guide
 
-A comprehensive guide for using Vidicant to analyze images and videos.
+Vidicant is a fast, cross-platform media analysis library combining high-performance C++17/OpenCV with zero-dependency Python stdlib (`ctypes`) bindings.
 
-## Installation
+---
 
-### Python Package
-
-```bash
-pip install /path/to/vidicant --break-system-packages
-```
-
-Or from PyPI (when published):
-```bash
-pip install vidicant
-```
+## Installation & Requirements
 
 ### Requirements
-- Python 3.11+
-- OpenCV (automatically installed as dependency)
-- NumPy (automatically installed as dependency)
+- **Python**: 3.11+
+- **Python Dependencies**: **Zero runtime pip dependencies** (uses pure standard library `ctypes`, `json`, `pathlib`, `urllib`).
+- **Native Runtime**: Pre-built via Zig (`zig build`) or system OpenCV package.
 
-## Basic Usage
+### Build & Install
+```bash
+# 1. Build native shared library & CLI
+zig build
 
-### Import and Setup
+# 2. Use directly or install locally
+PYTHONPATH=. python3 -c "import vidicant; print(vidicant.__file__)"
+pip install . --break-system-packages
+```
 
+---
+
+## Quickstart
+
+### 1. File Type Detection
 ```python
 import vidicant
 
-# Check what you can analyze
 vidicant.is_image_file("photo.jpg")  # True
-vidicant.is_image_file("video.mp4")  # False
-vidicant.is_video_file("video.mp4")  # True
+vidicant.is_video_file("clip.mp4")  # True
 ```
 
-### Analyzing Images
-
-```python
-import vidicant
-import json
-
-result = vidicant.process_image("photo.jpg")
-
-print(json.dumps(result, indent=2))
-# Output:
-# {
-#   "width": 1920,
-#   "height": 1080,
-#   "is_grayscale": false,
-#   "average_brightness": 128.5,
-#   "channels": 3,
-#   "edge_count": 45230,
-#   "dominant_colors": [[255, 200, 150], [100, 120, 140], ...],
-#   "blur_score": 0.45
-# }
-```
-
-### Analyzing Videos
-
+### 2. Image Analysis (Heuristic & Neural)
 ```python
 import vidicant
 
-result = vidicant.process_video("video.mp4")
+# Standard heuristic analysis
+metrics = vidicant.process_image("photo.jpg")
+print(f"Resolution: {metrics['width']}x{metrics['height']}")
+print(f"Blur: {metrics['blur_score']:.2f}, Noise: {metrics['noise_type']}")
 
-print(f"Duration: {result['duration_seconds']} seconds")
-print(f"Resolution: {result['width']}x{result['height']}")
-print(f"Frame rate: {result['fps']} fps")
-print(f"Total frames: {result['frame_count']}")
-print(f"Motion intensity: {result['motion_score']}")
+# Neural semantic classification (Top-K)
+res_cls = vidicant.process_image("photo.jpg", enable_ml=True, task="classify", top_k=3)
+print("Top labels:", res_cls["top_labels"])
+
+# Object & face detection with NMS
+res_det = vidicant.process_image("photo.jpg", enable_ml=True, task="detect", conf_threshold=0.5)
+print("Detections:", res_det["detected_objects"])
+
+# Raw ONNX tensor embeddings
+res_emb = vidicant.process_image("photo.jpg", enable_ml=True, task="embed")
+print(f"Embedding ({len(res_emb['embedding'])} dims):", res_emb["embedding"])
 ```
+
+### 3. Video Analysis
+```python
+import vidicant
+
+video = vidicant.process_video("clip.mp4")
+print(f"Duration: {video['duration_seconds']}s @ {video['fps']} fps")
+print(f"Motion: {video['motion_score']:.2f}, Scenes: {video['scene_changes']}")
+print(f"Best Thumbnail Frame: #{video['best_thumbnail_frame']}")
+```
+
+---
 
 ## API Reference
 
-### Functions
+### Image Processing
 
-#### `is_image_file(filename: str) -> bool`
-Check if a file is a supported image format.
+#### `process_image(filename, enable_ml=False, task="quality", model_path=None, top_k=5, conf_threshold=0.5, nms_threshold=0.4) -> dict`
 
-**Supported formats:** `.jpg`, `.jpeg`, `.png`, `.bmp`, `.tiff`, `.tif`, `.gif`, `.webp`
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `filename` | `str` | *required* | Path to image file (`.jpg`, `.png`, `.webp`, `.bmp`, `.tiff`, etc.). |
+| `enable_ml` | `bool` | `False` | Enables ONNX neural inference if `True`. |
+| `task` | `str` | `"quality"` | DNN task mode: `"quality"`, `"classify"`, `"detect"`, `"embed"`, or `"auto"`. |
+| `model_path` | `str \| None` | `None` | Custom ONNX model path or URL. Defaults to cached task model. |
+| `top_k` | `int` | `5` | Number of top classification labels (for `task="classify"`). |
+| `conf_threshold` | `float` | `0.5` | Detection confidence threshold (for `task="detect"`). |
+| `nms_threshold` | `float` | `0.4` | Non-Maximum Suppression IoU threshold (for `task="detect"`). |
 
-```python
-if vidicant.is_image_file("file.jpg"):
-    result = vidicant.process_image("file.jpg")
-```
-
-#### `is_video_file(filename: str) -> bool`
-Check if a file is a supported video format.
-
-**Supported formats:** `.mp4`, `.avi`, `.mov`, `.mkv`, `.wmv`, `.flv`, `.webm`, `.m4v`
-
-```python
-if vidicant.is_video_file("file.mp4"):
-    result = vidicant.process_video("file.mp4")
-```
-
-#### `process_image(filename: str, enable_ml: bool = False, model_path: str | None = None) -> dict`
-Analyze an image file and return metrics.
-
-**Parameters:**
-- `filename` (`str`): Path to the image file.
-- `enable_ml` (`bool`, default `False`): When `True`, evaluates neural aesthetic and technical quality via ONNX.
-- `model_path` (`str | None`, optional): Custom ONNX model file path or URL. Defaults to cached `aesthetic_mobilenetv2.onnx`.
-
-**Returns:**
-```python
+**Returned Image Metrics Schema:**
+```json
 {
-    "width": int,  # Image width in pixels
-    "height": int,  # Image height in pixels
-    "aspect_ratio": float,  # Width/height ratio
-    "is_grayscale": bool,  # True if image is grayscale
-    "average_brightness": float,  # Mean brightness (0-255)
-    "channels": int,  # Number of color channels (1 or 3)
-    "edge_count": int,  # Estimated number of edges detected
-    "dominant_colors": list[list],  # Top 3 colors [[R,G,B], ...]
-    "blur_score": float,  # Sharpness metric (higher = sharper)
-    "contrast_ratio": float,  # Dynamic range (max/min intensity)
-    "saturation_level": float,  # Average color saturation (0-255)
-    "entropy": float,  # Information content (0-8 bits)
-    "histogram": list[list],  # RGB channel histograms [256 bins each]
-    "aesthetic_score": float | None,  # NIMA score [1.0 - 10.0] if enable_ml=True
-    "technical_quality_score": float | None,  # Quality score [0.0 - 1.0] if enable_ml=True
-    "ml_evaluated": bool,  # True if DNN model inference was executed
+  "filename": "photo.jpg",
+  "width": 1920,
+  "height": 1080,
+  "aspect_ratio": 1.777,
+  "channels": 3,
+  "is_grayscale": false,
+  "average_brightness": 128.5,
+  "blur_score": 963.2,
+  "sharpness_score": 15.4,
+  "contrast_ratio": 42.1,
+  "saturation_level": 85.0,
+  "entropy": 7.42,
+  "edge_count": 45230,
+  "noise_estimate": 2.15,
+  "noise_type": "gaussian",
+  "symmetry_score": 0.88,
+  "white_balance_score": 4.2,
+  "perceptual_hash": 139123847291837482,
+  "dominant_colors": [[255, 200, 150], [100, 120, 140], [40, 50, 60]],
+  "histogram": [[...], [...], [...]],
+  "hue_histogram": [120, 45, 0, ...],
+  "texture_features": {
+    "contrast": 12.3,
+    "energy": 0.045,
+    "homogeneity": 0.62,
+    "correlation": 0.89
+  },
+  "ml_evaluated": true,
+  "aesthetic_score": 6.85,
+  "technical_quality_score": 0.65,
+  "top_labels": [
+    {"class_id": 281, "label": "class_281", "confidence": 0.892}
+  ],
+  "detected_objects": [
+    {"box": [120.0, 80.0, 200.0, 250.0], "class_name": "face", "confidence": 0.94}
+  ],
+  "embedding": [0.124, -0.452, 0.891]
 }
 ```
+
+---
+
+### Video Processing
 
 #### `process_video(filename: str) -> dict`
-Analyze a video file and return metrics.
 
-**Returns:**
-```python
+**Returned Video Metrics Schema:**
+```json
 {
-    "frame_count": int,  # Total number of frames
-    "fps": float,  # Frames per second
-    "width": int,  # Video width in pixels
-    "height": int,  # Video height in pixels
-    "duration_seconds": float,  # Video duration in seconds
-    "average_brightness": float,  # Mean brightness across frames
-    "is_grayscale": bool,  # True if video is grayscale
-    "motion_score": float,  # Motion intensity (higher = more motion)
-    "dominant_colors": list[list],  # Top dominant colors across frames
-    "scene_changes": list[int],  # Frame indices where scene changes occur
-    "frame_rate_stability": float,  # Frame rate consistency (lower = more stable)
-    "color_consistency": float,  # Color stability across frames (lower = more consistent)
+  "filename": "clip.mp4",
+  "frame_count": 300,
+  "fps": 30.0,
+  "duration_seconds": 10.0,
+  "width": 1920,
+  "height": 1080,
+  "average_brightness": 115.4,
+  "is_grayscale": false,
+  "motion_score": 3.82,
+  "optical_flow_magnitude": 2.45,
+  "dominant_colors": [[120, 140, 160], [40, 50, 60]],
+  "scene_changes": [45, 120, 210],
+  "shot_length_stats": {"mean": 75.0, "stddev": 32.1, "min": 45, "max": 120, "count": 3},
+  "frame_rate_stability": 0.002,
+  "color_consistency": 1.15,
+  "flicker_score": 0.04,
+  "has_audio_track": true,
+  "codec_fourcc": "avc1",
+  "best_thumbnail_frame": 85,
+  "first_frame_extracted": true,
+  "first_frame_path": "clip_first_frame.jpg"
 }
 ```
 
-## Practical Examples
+---
 
-### Batch Image Analysis
-
-```python
-import vidicant
-import pandas as pd
-from pathlib import Path
-
-results = []
-for path in Path("images/").glob("*"):
-    if vidicant.is_image_file(str(path)):
-        result = vidicant.process_image(str(path))
-        result["filename"] = path.name
-        results.append(result)
-
-df = pd.DataFrame(results)
-print(df[["filename", "average_brightness", "blur_score"]])
-```
-
-### Quality Control
+### Model Management Utilities
 
 ```python
 import vidicant
 
+# Get cache path for default task model (~/.cache/vidicant/models/)
+path = vidicant.get_default_model_path(task="classify")
 
-def check_quality(filename):
-    r = vidicant.process_image(filename)
-    issues = []
-    if r["blur_score"] < 0.5:
-        issues.append("blurry")
-    if r["average_brightness"] > 240:
-        issues.append("overexposed")
-    if r["average_brightness"] < 20:
-        issues.append("underexposed")
-    return "PASS" if not issues else f"FAIL: {', '.join(issues)}"
-
-
-for img in ["photo1.jpg", "photo2.jpg"]:
-    print(f"{img}: {check_quality(img)}")
+# Ensure model exists locally; downloads to cache if given URL or default
+local_path = vidicant.ensure_model("https://example.com/model.onnx")
 ```
 
-### ML Feature Extraction
+---
 
-```python
-import vidicant
-from sklearn.preprocessing import StandardScaler
+## Command Line Interface (`vidicant_cli`)
 
-features, labels = [], []
-for category in ["cats", "dogs"]:
-    for path in Path(f"data/{category}").glob("*.jpg"):
-        r = vidicant.process_image(str(path))
-        features.append([r["average_brightness"], r["edge_count"], r["blur_score"]])
-        labels.append(category)
+```bash
+# Basic image & video processing
+./zig-out/bin/vidicant_cli photo.jpg clip.mp4 -o results.json
 
-X = StandardScaler().fit_transform(features)
-# Now use X, labels with sklearn, PyTorch, TensorFlow
+# Classification with Top-3 labels
+./zig-out/bin/vidicant_cli photo.jpg --task classify --top-k 3
+
+# Face & Object detection with custom thresholds
+./zig-out/bin/vidicant_cli photo.jpg --task detect --conf-threshold 0.6 --nms-threshold 0.3
+
+# Custom ONNX model
+./zig-out/bin/vidicant_cli photo.jpg --model custom_model.onnx --task embed
 ```
 
-### Video Motion Detection
+---
 
-```python
-import vidicant
+## Troubleshooting & Tips
 
-r = vidicant.process_video("video.mp4")
-activity = "HIGH" if r["motion_score"] > 0.7 else "LOW"
-print(f"Duration: {r['duration_seconds']:.1f}s, Activity: {activity}")
-```
-
-## Performance Tips
-
-- **Batch processing**: Process multiple files in a loop rather than with list comprehensions
-- **Large videos**: Motion detection scales with video length
-- **Memory**: Results are lightweight Python dicts
-
-## Common Issues
-
-| Issue | Solution |
-|-------|----------|
-| Module not found | Reinstall: `pip install /path/to/vidicant --break-system-packages` |
-| File not found | Verify file exists: `os.path.exists("file.jpg")` |
-| Unsupported format | Use `is_image_file()` or `is_video_file()` to check first |
-| macOS import errors | Install OpenCV: `brew install opencv` |
-
-## What's Next?
-
-- See [AGENTS.md](AGENTS.md#python-bindings-implementation) for technical details about Python bindings
-- See [CONTRIBUTING.md](CONTRIBUTING.md) for building from source
-- See [README.md](README.md) for project overview
+| Issue | Resolution |
+|-------|------------|
+| Library not found | Run `zig build` to generate `libvidicant` in `zig-out/lib/`. |
+| Missing OpenCV headers | macOS: `brew install opencv`; Linux: `apt install libopencv-dev`. |
+| First-time ONNX download | `ensure_model()` caches models in `~/.cache/vidicant/models/`. Set `VIDICANT_MODEL_PATH` to override. |
