@@ -6,7 +6,6 @@ to verify that the full media analysis pipeline works correctly.
 
 from __future__ import annotations
 
-import json
 import os
 import sys
 
@@ -66,8 +65,10 @@ def test_analyzing_images():
     assert isinstance(result["entropy"], (int, float))
     assert isinstance(result["histogram"], list)
 
-    print("Image analysis result:")
-    print(json.dumps(result, indent=2))
+    print(f"Resolution: {result['width']}x{result['height']}")
+    print(f"Brightness: {result['average_brightness']:.2f}")
+    print(f"Blur score: {result['blur_score']:.2f}")
+    print(f"Dominant colors: {len(result['dominant_colors'])} detected")
     print("✓ Image analysis works correctly")
     print()
 

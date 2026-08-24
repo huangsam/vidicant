@@ -31,5 +31,5 @@ RUN ARCH=$(uname -m) && \
 
 WORKDIR /workspace
 
-# Default command: build and run e2e test suite
-CMD ["bash", "-c", "zig build && PYTHONPATH=. python3 e2e.py"]
+# Default command: build, verify CLI binary, and run e2e test suite
+CMD ["bash", "-c", "zig build && ./zig-out/bin/vidicant_cli --image examples/sample.jpg --video examples/sample.mp4 && PYTHONPATH=. python3 e2e.py"]
