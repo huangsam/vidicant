@@ -31,7 +31,7 @@ jobs:
           find src test include \( -name '*.cpp' -o -name '*.hpp' \) | xargs clang-format --dry-run --Werror
 
   build-and-test:
-    name: Build & Test (${{ matrix.os }}, ${{ matrix.python-version }})
+    name: Build (${{ matrix.os }}, ${{ matrix.python-version }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
