@@ -8,6 +8,7 @@ This document is for developers who want to build, develop, or contribute to Vid
 
 - Zig compiler (v0.16+)
 - OpenCV 4.x/5.x development libraries (e.g. `brew install opencv` on macOS or `libopencv-dev` on Linux)
+- nlohmann-json development headers (e.g. `brew install nlohmann-json` on macOS or `nlohmann-json3-dev` on Linux)
 - C++17 compatible compiler toolchain (driven by Zig)
 
 ### Building from Source
@@ -81,10 +82,10 @@ PYTHONPATH=. python3 e2e.py
 
 ```bash
 # macOS
-brew install opencv
+brew install opencv nlohmann-json
 
 # Linux (Debian/Ubuntu)
-sudo apt install libopencv-dev
+sudo apt install libopencv-dev nlohmann-json3-dev
 ```
 
 ### Build Dependencies
