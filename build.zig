@@ -46,10 +46,12 @@ pub fn build(b: *std.Build) void {
             "/usr/local/include",
             "-I",
             "/usr/include",
-            "src/image.cpp",
-            "src/video.cpp",
-            "src/controller.cpp",
-            "src/vidicant_c_api.cpp",
+        });
+        lib_cmd.addFileArg(b.path("src/image.cpp"));
+        lib_cmd.addFileArg(b.path("src/video.cpp"));
+        lib_cmd.addFileArg(b.path("src/controller.cpp"));
+        lib_cmd.addFileArg(b.path("src/vidicant_c_api.cpp"));
+        lib_cmd.addArgs(&.{
             "-lopencv_core",
             "-lopencv_imgproc",
             "-lopencv_imgcodecs",
@@ -77,10 +79,12 @@ pub fn build(b: *std.Build) void {
             "/usr/local/include",
             "-I",
             "/usr/include",
-            "src/main.cpp",
-            "src/controller.cpp",
-            "src/image.cpp",
-            "src/video.cpp",
+        });
+        exe_cmd.addFileArg(b.path("src/main.cpp"));
+        exe_cmd.addFileArg(b.path("src/controller.cpp"));
+        exe_cmd.addFileArg(b.path("src/image.cpp"));
+        exe_cmd.addFileArg(b.path("src/video.cpp"));
+        exe_cmd.addArgs(&.{
             "-lopencv_core",
             "-lopencv_imgproc",
             "-lopencv_imgcodecs",
