@@ -1,69 +1,40 @@
 # Vidicant
 
-Vidicant is a cross-platform library for analyzing images and videos, extracting meaningful features like brightness, colors, motion, and edge detection. It provides capabilities similar to Apple's Vision and AVFoundation frameworks but using OpenCV for broader platform compatibility.
+Vidicant is a fast, cross-platform library for image and video analysis, feature extraction, and neural assessment (C++17/OpenCV core with zero-dependency Python `ctypes` bindings and Zig build system).
 
 ## Quick Start
 
-**For Python users:**
-```bash
-pip install /path/to/vidicant
-```
-
+**Python (Zero Dependencies):**
 ```python
 import vidicant
 
-# Analyze an image
-result = vidicant.process_image("photo.jpg")
-print(f"Brightness: {result['average_brightness']}")
-print(f"Colors: {result['dominant_colors']}")
+# Heuristic & Neural Image Analysis
+result = vidicant.process_image("photo.jpg", enable_ml=True, task="classify")
+print(f"Resolution: {result['width']}x{result['height']}, Labels: {result['top_labels']}")
 
-# Analyze a video
-result = vidicant.process_video("video.mp4")
-print(f"Duration: {result['duration_seconds']}s")
-print(f"Motion: {result['motion_score']}")
+# Video Analysis
+video = vidicant.process_video("video.mp4")
+print(f"Duration: {video['duration_seconds']}s, Motion: {video['motion_score']:.2f}")
 ```
 
-**For Native / CLI users:**
+**Native CLI:**
 ```bash
-# Build with Zig
 zig build
-
-# Run the native binary
-./zig-out/bin/vidicant_cli --image examples/sample.jpg --video examples/sample.mp4
+./zig-out/bin/vidicant_cli photo.jpg clip.mp4 --task detect -o results.json
 ```
 
 ## Features
 
-- **Image Analysis**: Dimensions, brightness, color analysis, edge detection, blur scoring, texture, dHash
-- **Video Analysis**: Frame count, FPS, resolution, duration, motion detection, scene cuts, flicker score
-- **ONNX / DNN Quality Assessment**: NIMA aesthetic rating and technical quality scores via OpenCV DNN
-- **Cross-platform**: Windows, macOS, Linux support via Zig toolchain
-- **Python Integration**: Zero-dependency C-ABI Python extension layer via ctypes
-- **CLI Tool**: Native command-line interface for quick batch analysis
+- **Image Analysis**: Dimensions, brightness, dominant colors, edge counts, blur/sharpness, GLCM texture, white balance, dHash.
+- **Video Analysis**: FPS, frame count, duration, motion score, scene cuts, shot stats, flicker, best thumbnail selection.
+- **Neural Engine**: Semantic classification (Top-K), object/face detection (NMS), generic tensor embeddings, aesthetic/quality rating.
+- **Zero-Dependency Python**: Pure stdlib `ctypes` runtime linking native `libvidicant`.
+- **Cross-Platform**: macOS, Linux, and Windows support via Zig 0.16 build system.
 
 ## Documentation
 
-- **[USERGUIDE.md](USERGUIDE.md)** — Python usage, API reference, practical examples
-- **[CONTRIBUTING.md](CONTRIBUTING.md)** — Building from source, development setup, C++ API
-- **[AGENTS.md](AGENTS.md)** — Agent guidelines, repository layout, essential commands
-- **[docs/architecture_and_bindings.md](docs/architecture_and_bindings.md)** — System architecture & Python C-ABI design
-- **[docs/apple_frameworks_comparison.md](docs/apple_frameworks_comparison.md)** — Detailed comparison with Apple Vision & AVFoundation
-
-## Comparison to Similar Tools
-
-| Tool | Purpose | Strengths |
-|------|---------|-----------|
-| **Vidicant** | Media analysis & feature extraction | Fast, cross-platform, Python-friendly |
-| **PIL/Pillow** | Image manipulation | Mature, many filters and transforms |
-| **OpenCV** | Computer vision | Advanced algorithms, low-level control |
-| **Apple Vision** | iOS/macOS analysis | Native integration, proprietary |
-
-Vidicant fills the "fast media feature extraction" niche — ideal for ML preprocessing pipelines, batch analysis, and cross-platform distribution.
-
-## Use Cases
-
-- **Machine Learning**: Extract image/video metrics for training datasets
-- **Batch Processing**: Analyze thousands of media files quickly
-- **Media QA**: Validate image/video quality metrics
-- **Data Science**: Prepare media features for analysis
-- **Cross-platform Apps**: Consistent media analysis across Windows, Mac, Linux
+- **[USERGUIDE.md](USERGUIDE.md)** — Python API reference, schema specifications, and examples
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** — Build instructions, C++ API, and development workflow
+- **[AGENTS.md](AGENTS.md)** — Agent guidelines, constraints, and verification commands
+- **[docs/architecture_and_bindings.md](docs/architecture_and_bindings.md)** — Architecture & C-ABI design
+- **[docs/apple_frameworks_comparison.md](docs/apple_frameworks_comparison.md)** — Comparison with Apple Vision & AVFoundation
