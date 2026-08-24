@@ -30,9 +30,7 @@ def _find_library():
         if p.is_file():
             return ctypes.CDLL(str(p))
 
-    raise FileNotFoundError(
-        f"Could not locate {lib_name}. Please run 'zig build' first."
-    )
+    raise FileNotFoundError(f"Could not locate {lib_name}. Please run 'zig build' first.")
 
 
 _lib = _find_library()
@@ -83,9 +81,7 @@ def process_image(
     if enable_ml or model_path:
         resolved = ensure_model(model_path)
         if resolved:
-            raw_ptr = _lib.vidicant_process_image_ml(
-                filename.encode("utf-8"), resolved.encode("utf-8")
-            )
+            raw_ptr = _lib.vidicant_process_image_ml(filename.encode("utf-8"), resolved.encode("utf-8"))
         else:
             raw_ptr = _lib.vidicant_process_image(filename.encode("utf-8"))
     else:

@@ -104,10 +104,7 @@ def test_analyzing_videos():
     assert isinstance(result["fps"], (int, float)) and result["fps"] > 0
     assert isinstance(result["width"], int) and result["width"] > 0
     assert isinstance(result["height"], int) and result["height"] > 0
-    assert (
-        isinstance(result["duration_seconds"], (int, float))
-        and result["duration_seconds"] > 0
-    )
+    assert isinstance(result["duration_seconds"], (int, float)) and result["duration_seconds"] > 0
     assert 0 <= result["average_brightness"] <= 255
     assert isinstance(result["is_grayscale"], bool)
     assert isinstance(result["motion_score"], (int, float))
@@ -175,9 +172,7 @@ def _generate_test_onnx(path: str) -> None:
     def make_value_info(name: str, elem_type: int, dims: list[int]) -> bytes:
         return field_string(1, name) + field_bytes(2, make_tensor_type(elem_type, dims))
 
-    def make_node(
-        inputs: list[str], outputs: list[str], name: str, op_type: str
-    ) -> bytes:
+    def make_node(inputs: list[str], outputs: list[str], name: str, op_type: str) -> bytes:
         res = bytearray()
         for inp in inputs:
             res.extend(field_string(1, inp))
@@ -222,9 +217,7 @@ def test_ml_quality_assessment():
     assert res_no_ml["technical_quality_score"] is None
 
     # 2. Non-existent model path should gracefully fallback
-    res_bad_model = vidicant.process_image(
-        "examples/sample.jpg", enable_ml=True, model_path="nonexistent_model.onnx"
-    )
+    res_bad_model = vidicant.process_image("examples/sample.jpg", enable_ml=True, model_path="nonexistent_model.onnx")
     assert res_bad_model["ml_evaluated"] is False
     assert res_bad_model["aesthetic_score"] is None
 
@@ -236,18 +229,14 @@ def test_ml_quality_assessment():
     temp_model = "test_fixture_model.onnx"
     try:
         _generate_test_onnx(temp_model)
-        res_active = vidicant.process_image(
-            "examples/sample.jpg", enable_ml=True, model_path=temp_model
-        )
+        res_active = vidicant.process_image("examples/sample.jpg", enable_ml=True, model_path=temp_model)
         assert res_active["ml_evaluated"] is True
         assert isinstance(res_active["aesthetic_score"], float)
         assert isinstance(res_active["technical_quality_score"], float)
         assert 0.0 <= res_active["aesthetic_score"] <= 10.0
         assert 0.0 <= res_active["technical_quality_score"] <= 1.0
         print(f"Active DNN Aesthetic Score: {res_active['aesthetic_score']:.3f}")
-        print(
-            f"Active DNN Technical Score: {res_active['technical_quality_score']:.3f}"
-        )
+        print(f"Active DNN Technical Score: {res_active['technical_quality_score']:.3f}")
     finally:
         if os.path.exists(temp_model):
             os.remove(temp_model)
@@ -262,12 +251,8 @@ def test_python_version_compatibility():
     print("TEST: Python Version Compatibility (>= 3.11)")
     print("=" * 60)
 
-    assert sys.version_info >= (3, 11), (
-        f"Vidicant requires Python 3.11+, got {sys.version_info}"
-    )
-    print(
-        f"✓ Running on supported Python version: {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
-    )
+    assert sys.version_info >= (3, 11), f"Vidicant requires Python 3.11+, got {sys.version_info}"
+    print(f"✓ Running on supported Python version: {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}")
     print()
 
 

@@ -52,9 +52,7 @@ def ensure_model(model_path_or_url: str | None = None) -> str | None:
                 urllib.request.urlretrieve(model_path_or_url, str(dest))
                 return str(dest)
             except (urllib.error.URLError, OSError, TimeoutError) as e:
-                print(
-                    f"[Vidicant] Warning: Failed to download model from {model_path_or_url}: {e}"
-                )
+                print(f"[Vidicant] Warning: Failed to download model from {model_path_or_url}: {e}")
                 return None
         return None
 
@@ -69,9 +67,7 @@ def ensure_model(model_path_or_url: str | None = None) -> str | None:
         if default_path.is_file() and default_path.stat().st_size > 0:
             return str(default_path)
     except (urllib.error.URLError, OSError, TimeoutError) as e:
-        print(
-            f"[Vidicant] Warning: Could not download default aesthetic model ({e}). Continuing with heuristic metrics."
-        )
+        print(f"[Vidicant] Warning: Could not download default aesthetic model ({e}). Continuing with heuristic metrics.")
         return None
 
     return None
