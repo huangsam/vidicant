@@ -26,5 +26,6 @@ find src test include \( -name '*.cpp' -o -name '*.hpp' \) | xargs clang-format 
 
 - [USERGUIDE.md](USERGUIDE.md)
 - [CONTRIBUTING.md](CONTRIBUTING.md)
+- [TODO.md](TODO.md)
 - [docs/architecture_and_bindings.md](docs/architecture_and_bindings.md)
 - [docs/apple_frameworks_comparison.md](docs/apple_frameworks_comparison.md)
