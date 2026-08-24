@@ -118,7 +118,8 @@ Analyze an image file and return metrics.
     "entropy": float,  # Information content (0-8 bits)
     "histogram": list[list],  # RGB channel histograms [256 bins each]
     "aesthetic_score": float | None,  # NIMA score [1.0 - 10.0] if enable_ml=True
-    "technical_quality_score": float | None,  # Quality score [0.0 - 1.0] if enable_ml=True
+    "technical_quality_score": float
+    | None,  # Quality score [0.0 - 1.0] if enable_ml=True
     "ml_evaluated": bool,  # True if DNN model inference was executed
 }
 ```

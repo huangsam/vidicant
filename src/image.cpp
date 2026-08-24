@@ -546,7 +546,6 @@ ImageHandler::assessQualityDNN(const std::string &filename,
           return {-1.0, -1.0};
         }
         net.setPreferableBackend(cv::dnn::DNN_BACKEND_DEFAULT);
-        net.setPreferableTarget(cv::dnn::DNN_TARGET_CPU);
         g_model_cache[model_path] = net;
       }
     }

@@ -9,7 +9,7 @@ description = "Cross-platform media analysis library using C++ and OpenCV"
 readme = "README.md"
 license = {text = "MIT"}
 authors = [
-    {name = "Vidicant Contributors", email = ""}
+    {name = "Vidicant Contributors", email = "samhuang91@gmail.com"}
 ]
 requires-python = ">=3.8"
 dependencies = [
