@@ -12,11 +12,14 @@ This document details how Vidicant compares to Apple's proprietary media process
 
 ## Feature Mapping
 
-### Image Analysis (Vision Equivalent)
+### Image & Neural Analysis (Vision Equivalent)
 - **Dimensions & Channels**: Resolution and color format extraction.
 - **Color Distribution**: Average brightness, dominant color palette calculation via k-means.
 - **Edge & Sharpness**: Laplacian variance for blur detection, Canny edge analysis.
 - **Grayscale Detection**: Automatic check for monochrome imagery.
+- **Classification (`VNClassifyImageRequest`)**: Top-K label prediction via MobileNet / ImageNet ONNX.
+- **Face & Object Detection (`VNDetectFaceRectanglesRequest`)**: Bounding box localization with NMS via YOLO / YuNet.
+- **Vector Embeddings (`VNGenerateImageFeaturePrintRequest`)**: Generic raw feature tensor extraction.
 
 ### Video Analysis (AVFoundation Equivalent)
 - **Stream Metadata**: Frame count, duration, FPS, resolution.

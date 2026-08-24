@@ -32,9 +32,10 @@ Vidicant is structured across three distinct layers:
 
 ### 2. C-ABI Wrapper Layer (`src/vidicant_c_api.cpp`)
 To avoid ABI coupling and complex C++ binding tools, the native library exports clean `extern "C"` functions:
-- `process_image_json(const char* image_path)`: Analyzes image and returns a heap-allocated JSON string.
-- `process_video_json(const char* video_path)`: Analyzes video and returns a heap-allocated JSON string.
-- `free_json_string(char* ptr)`: Safely deallocates strings allocated by the C++ runtime.
+- `vidicant_process_image(const char* image_path)`: Analyzes image and returns a heap-allocated JSON string.
+- `vidicant_process_image_dnn(const char* image_path, const char* model_path, const char* task, int top_k, float conf_threshold, float nms_threshold)`: Runs heuristic + neural pipeline and returns a heap-allocated JSON string.
+- `vidicant_process_video(const char* video_path)`: Analyzes video and returns a heap-allocated JSON string.
+- `vidicant_free_string(const char* ptr)`: Safely deallocates strings allocated by the C++ runtime.
 
 ### 3. Python Driver (`vidicant/`)
 - Pure Python using the built-in `ctypes` module.
@@ -43,9 +44,9 @@ To avoid ABI coupling and complex C++ binding tools, the native library exports 
 - Transparent on-demand model download and cache manager (`vidicant/models.py`) targeting `~/.cache/vidicant/models/`.
 - Automatically handles serialization: C++ metrics JSON $\rightarrow$ Python `dict`.
 
-### 4. Neural Assessment Engine (`opencv_dnn`)
+### 4. Neural Engine (`opencv_dnn`)
 - Embedded inference using OpenCV's built-in `cv::dnn::readNetFromONNX`.
-- Evaluates NIMA aesthetic score (1.0–10.0) and technical quality rating (0.0–1.0).
+- Supports 4 neural tasks: Quality scoring (NIMA distribution & technical score), Semantic Classification (Softmax + Top-K), Object & Face Detection (`cv::dnn::NMSBoxes`), and Generic Tensor Embeddings.
 - Thread-safe memory caching of loaded network graphs (`cv::dnn::Net`).
 - Zero extra external C++ libraries required.
 
@@ -63,7 +64,6 @@ To avoid ABI coupling and complex C++ binding tools, the native library exports 
 
 ## Future Enhancements
 
-- **Object Detection**: Add YOLO-nano / YuNet face detector support via `opencv_dnn`.
 - **GPU Acceleration**: Leverage OpenCV CUDA backends for high-throughput video processing.
 - **Streaming Support**: Real-time webcam and RTSP stream analysis.
 - **Direct Buffer Passing**: Optional zero-copy frame buffer sharing via numpy arrays.
