@@ -129,12 +129,13 @@ bool isVideoFile(const std::string &filename) {
 }
 
 // Function to process an image file
-nlohmann::json processImage(const std::string &filename) {
+nlohmann::json processImage(const std::string &filename,
+                            const std::string &model_path) {
   nlohmann::json result;
   result["filename"] = filename;
 
   // Load and analyse the image once via a single ImageHandler.
-  ImageMetrics m = vidicant::getImageMetrics(filename);
+  ImageMetrics m = vidicant::getImageMetrics(filename, model_path);
   if (m.width == -1) {
     result["error"] = "Failed to load image";
     return result;
@@ -171,6 +172,16 @@ nlohmann::json processImage(const std::string &filename) {
   result["hue_histogram"] = m.hue_histogram;
   result["sharpness_score"] = m.sharpness_score;
   result["noise_type"] = m.noise_type;
+
+  if (m.ml_evaluated) {
+    result["aesthetic_score"] = m.aesthetic_score;
+    result["technical_quality_score"] = m.technical_quality_score;
+    result["ml_evaluated"] = true;
+  } else {
+    result["aesthetic_score"] = nullptr;
+    result["technical_quality_score"] = nullptr;
+    result["ml_evaluated"] = false;
+  }
 
   return result;
 }

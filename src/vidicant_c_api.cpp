@@ -33,6 +33,22 @@ const char *vidicant_process_image(const char *filename) {
   }
 }
 
+const char *vidicant_process_image_ml(const char *filename,
+                                      const char *model_path) {
+  if (!filename)
+    return nullptr;
+  try {
+    std::string mp = model_path ? std::string(model_path) : "";
+    nlohmann::json res = processImage(std::string(filename), mp);
+    std::string s = res.dump();
+    char *out = static_cast<char *>(std::malloc(s.size() + 1));
+    std::memcpy(out, s.c_str(), s.size() + 1);
+    return out;
+  } catch (...) {
+    return nullptr;
+  }
+}
+
 const char *vidicant_process_video(const char *filename) {
   if (!filename)
     return nullptr;

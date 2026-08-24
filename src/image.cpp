@@ -1,12 +1,16 @@
 #include "vidicant/image.hpp"
 #include <algorithm>
 #include <cmath>
+#include <filesystem>
 #include <future>
 #include <iostream>
+#include <mutex>
 #include <numeric>
+#include <opencv2/dnn.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/opencv.hpp>
 #include <thread>
+#include <unordered_map>
 
 cv::Mat OpenCVImageLoader::imread(const std::string &filename) {
   return cv::imread(filename);
@@ -513,7 +517,97 @@ std::string ImageHandler::getNoiseType(const std::string &filename) {
   return "gaussian";
 }
 
-ImageMetrics ImageHandler::getMetrics(const std::string &filename) {
+// Global thread-safe model cache for ONNX networks to avoid repeated file I/O
+static std::mutex g_model_mutex;
+static std::unordered_map<std::string, cv::dnn::Net> g_model_cache;
+
+std::pair<double, double>
+ImageHandler::assessQualityDNN(const std::string &filename,
+                               const std::string &model_path) {
+  if (model_path.empty() || !std::filesystem::exists(model_path)) {
+    return {-1.0, -1.0};
+  }
+
+  cv::Mat image = loadCached(filename);
+  if (image.empty()) {
+    return {-1.0, -1.0};
+  }
+
+  try {
+    cv::dnn::Net net;
+    {
+      std::lock_guard<std::mutex> lock(g_model_mutex);
+      auto it = g_model_cache.find(model_path);
+      if (it != g_model_cache.end()) {
+        net = it->second;
+      } else {
+        net = cv::dnn::readNetFromONNX(model_path);
+        if (net.empty()) {
+          return {-1.0, -1.0};
+        }
+        net.setPreferableBackend(cv::dnn::DNN_BACKEND_DEFAULT);
+        net.setPreferableTarget(cv::dnn::DNN_TARGET_CPU);
+        g_model_cache[model_path] = net;
+      }
+    }
+
+    cv::Mat inputImg = image;
+    if (inputImg.channels() == 1) {
+      cv::cvtColor(inputImg, inputImg, cv::COLOR_GRAY2BGR);
+    } else if (inputImg.channels() == 4) {
+      cv::cvtColor(inputImg, inputImg, cv::COLOR_BGRA2BGR);
+    }
+
+    // Preprocessing: standard 224x224 RGB input with ImageNet mean subtraction
+    // & scaling
+    cv::Mat blob =
+        cv::dnn::blobFromImage(inputImg, 1.0 / 255.0, cv::Size(224, 224),
+                               cv::Scalar(0.485, 0.456, 0.406), true, false);
+
+    net.setInput(blob);
+    cv::Mat prob = net.forward();
+
+    double aesthetic_score = -1.0;
+    double technical_score = -1.0;
+
+    if (prob.total() == 10) {
+      // 10-bin NIMA distribution representing scores 1..10
+      cv::Mat expProb;
+      cv::exp(prob, expProb);
+      cv::Scalar sumExp = cv::sum(expProb);
+      if (sumExp[0] > 0) {
+        expProb /= sumExp[0];
+      }
+      double mean_score = 0.0;
+      for (int i = 0; i < 10; ++i) {
+        mean_score += (i + 1) * expProb.at<float>(0, i);
+      }
+      aesthetic_score = mean_score; // 1.0 - 10.0 scale
+      technical_score = std::clamp((mean_score - 1.0) / 9.0, 0.0, 1.0);
+    } else if (prob.total() == 1) {
+      // Direct scalar output
+      aesthetic_score = static_cast<double>(prob.at<float>(0, 0));
+      technical_score = std::clamp((aesthetic_score - 1.0) / 9.0, 0.0, 1.0);
+    } else {
+      double sum = 0.0;
+      for (size_t i = 0; i < prob.total(); ++i) {
+        sum += prob.at<float>(0, i);
+      }
+      aesthetic_score = sum / prob.total();
+      technical_score = std::clamp(aesthetic_score, 0.0, 1.0);
+    }
+
+    return {aesthetic_score, technical_score};
+  } catch (const std::exception &e) {
+    std::cerr << "OpenCV DNN inference error: " << e.what() << std::endl;
+    return {-1.0, -1.0};
+  } catch (...) {
+    return {-1.0, -1.0};
+  }
+}
+
+ImageMetrics ImageHandler::getMetrics(const std::string &filename,
+                                      const std::string &model_path) {
   ImageMetrics m{};
   auto [w, h] = getDimensions(filename);
   m.width = w;
@@ -540,6 +634,18 @@ ImageMetrics ImageHandler::getMetrics(const std::string &filename) {
   m.hue_histogram = getHueHistogram(filename);
   m.sharpness_score = getSharpnessScore(filename);
   m.noise_type = getNoiseType(filename);
+
+  if (!model_path.empty()) {
+    auto [aesthetic, technical] = assessQualityDNN(filename, model_path);
+    m.aesthetic_score = aesthetic;
+    m.technical_quality_score = technical;
+    m.ml_evaluated = (aesthetic >= 0.0);
+  } else {
+    m.aesthetic_score = -1.0;
+    m.technical_quality_score = -1.0;
+    m.ml_evaluated = false;
+  }
+
   return m;
 }
 
@@ -673,14 +779,23 @@ std::string getImageNoiseType(const std::string &filename) {
   return handler.getNoiseType(filename);
 }
 
-ImageMetrics getImageMetrics(const std::string &filename) {
+std::pair<double, double> assessImageQualityDNN(const std::string &filename,
+                                                const std::string &model_path) {
   auto loader = std::make_unique<OpenCVImageLoader>();
   ImageHandler handler(std::move(loader));
-  return handler.getMetrics(filename);
+  return handler.assessQualityDNN(filename, model_path);
+}
+
+ImageMetrics getImageMetrics(const std::string &filename,
+                             const std::string &model_path) {
+  auto loader = std::make_unique<OpenCVImageLoader>();
+  ImageHandler handler(std::move(loader));
+  return handler.getMetrics(filename, model_path);
 }
 
 std::vector<ImageMetrics>
-getBatchImageMetrics(const std::vector<std::string> &filenames) {
+getBatchImageMetrics(const std::vector<std::string> &filenames,
+                     const std::string &model_path) {
   // Bound concurrency to avoid spawning an unbounded number of threads.
   const size_t maxConcurrency =
       std::max(1u, std::thread::hardware_concurrency());
@@ -694,10 +809,10 @@ getBatchImageMetrics(const std::vector<std::string> &filenames) {
     futures.reserve(end - start);
     for (size_t i = start; i < end; ++i) {
       const std::string &fn = filenames[i];
-      futures.push_back(std::async(std::launch::async, [fn]() {
+      futures.push_back(std::async(std::launch::async, [fn, model_path]() {
         auto loader = std::make_unique<OpenCVImageLoader>();
         ImageHandler handler(std::move(loader));
-        return handler.getMetrics(fn);
+        return handler.getMetrics(fn, model_path);
       }));
     }
     for (size_t i = 0; i < futures.size(); ++i) {

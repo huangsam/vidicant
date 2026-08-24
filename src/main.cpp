@@ -9,7 +9,8 @@
 int main(int argc, char *argv[]) {
   if (argc < 2) {
     std::cout << "Usage: " << argv[0]
-              << " <file1> [file2] [file3] ... [--output <output.json>]"
+              << " <file1> [file2] [file3] ... [--output <output.json>] "
+                 "[--enable-ml] [--model <path.onnx>]"
               << std::endl;
     std::cout
         << "Supported image formats: jpg, jpeg, png, bmp, tiff, tif, gif, webp"
@@ -20,10 +21,14 @@ int main(int argc, char *argv[]) {
     std::cout
         << "Use --output to specify output JSON file (default: results.json)"
         << std::endl;
+    std::cout << "Use --enable-ml to enable ONNX aesthetic & quality assessment"
+              << std::endl;
     return 1;
   }
 
   std::string outputFile = "results.json";
+  std::string modelPath = "";
+  bool enableMl = false;
   std::vector<std::string> inputFiles;
 
   // Parse command line arguments
@@ -31,12 +36,32 @@ int main(int argc, char *argv[]) {
     std::string arg = argv[i];
     if ((arg == "--output" || arg == "-o") && i + 1 < argc) {
       outputFile = argv[++i];
+    } else if ((arg == "--model" || arg == "--model-path" || arg == "-m") &&
+               i + 1 < argc) {
+      modelPath = argv[++i];
+      enableMl = true;
+    } else if (arg == "--enable-ml") {
+      enableMl = true;
     } else if ((arg == "--image" || arg == "-i" || arg == "--video" ||
                 arg == "-v") &&
                i + 1 < argc) {
       inputFiles.push_back(argv[++i]);
     } else if (arg.rfind("-", 0) != 0) {
       inputFiles.push_back(arg);
+    }
+  }
+
+  // If enable_ml is set but no custom model path was provided, check standard
+  // cache
+  if (enableMl && modelPath.empty()) {
+    const char *home = std::getenv("HOME");
+    if (home) {
+      std::filesystem::path defaultModel = std::filesystem::path(home) /
+                                           ".cache" / "vidicant" / "models" /
+                                           "aesthetic_mobilenetv2.onnx";
+      if (std::filesystem::exists(defaultModel)) {
+        modelPath = defaultModel.string();
+      }
     }
   }
 
@@ -52,7 +77,7 @@ int main(int argc, char *argv[]) {
 
     if (isImageFile(filename)) {
       std::cout << "Processing image: " << filename << std::endl;
-      auto imageResult = processImage(filename);
+      auto imageResult = processImage(filename, modelPath);
       results["images"].push_back(imageResult);
     } else if (isVideoFile(filename)) {
       std::cout << "Processing video: " << filename << std::endl;

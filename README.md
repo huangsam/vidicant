@@ -34,11 +34,12 @@ zig build
 
 ## Features
 
-- **Image Analysis**: Dimensions, brightness, color analysis, edge detection, blur scoring
-- **Video Analysis**: Frame count, FPS, resolution, duration, motion detection
+- **Image Analysis**: Dimensions, brightness, color analysis, edge detection, blur scoring, texture, dHash
+- **Video Analysis**: Frame count, FPS, resolution, duration, motion detection, scene cuts, flicker score
+- **ONNX / DNN Quality Assessment**: NIMA aesthetic rating and technical quality scores via OpenCV DNN
 - **Cross-platform**: Windows, macOS, Linux support via Zig toolchain
-- **Python Integration**: C-ABI Python extension layer via ctypes
-- **CLI Tool**: Native command-line interface for quick analysis
+- **Python Integration**: Zero-dependency C-ABI Python extension layer via ctypes
+- **CLI Tool**: Native command-line interface for quick batch analysis
 
 ## Documentation
 

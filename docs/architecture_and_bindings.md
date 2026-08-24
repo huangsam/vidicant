@@ -40,7 +40,14 @@ To avoid ABI coupling and complex C++ binding tools, the native library exports 
 - Pure Python using the built-in `ctypes` module.
 - Zero third-party dependencies (no numpy/pybind11 required at install time).
 - Locates `libvidicant.dylib` / `.so` / `.dll` relative to package location or build output.
+- Transparent on-demand model download and cache manager (`vidicant/models.py`) targeting `~/.cache/vidicant/models/`.
 - Automatically handles serialization: C++ metrics JSON $\rightarrow$ Python `dict`.
+
+### 4. Neural Assessment Engine (`opencv_dnn`)
+- Embedded inference using OpenCV's built-in `cv::dnn::readNetFromONNX`.
+- Evaluates NIMA aesthetic score (1.0–10.0) and technical quality rating (0.0–1.0).
+- Thread-safe memory caching of loaded network graphs (`cv::dnn::Net`).
+- Zero extra external C++ libraries required.
 
 ## Key Technical Decisions
 
@@ -56,7 +63,7 @@ To avoid ABI coupling and complex C++ binding tools, the native library exports 
 
 ## Future Enhancements
 
-- **Machine Learning Integration**: Add OpenCV DNN module support for object detection and classification.
+- **Object Detection**: Add YOLO-nano / YuNet face detector support via `opencv_dnn`.
 - **GPU Acceleration**: Leverage OpenCV CUDA backends for high-throughput video processing.
 - **Streaming Support**: Real-time webcam and RTSP stream analysis.
 - **Direct Buffer Passing**: Optional zero-copy frame buffer sharing via numpy arrays.

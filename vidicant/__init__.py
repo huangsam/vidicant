@@ -1,12 +1,18 @@
-"""
-Vidicant - Cross-platform media analysis library
+"""Vidicant - Cross-platform media analysis library.
 
 A Python package for analyzing images and videos using C++ and OpenCV,
 providing fast, cross-platform media processing capabilities.
 """
 
 try:
-    from .binding import is_image_file, is_video_file, process_image, process_video
+    from .binding import (
+        ensure_model,
+        get_default_model_path,
+        is_image_file,
+        is_video_file,
+        process_image,
+        process_video,
+    )
 except (ImportError, FileNotFoundError):
     try:
         from .vidicant_py import (
@@ -25,8 +31,10 @@ except (ImportError, FileNotFoundError):
 
 __version__ = "0.1.0"
 __all__ = [
-    "process_image",
-    "process_video",
+    "ensure_model",
+    "get_default_model_path",
     "is_image_file",
     "is_video_file",
+    "process_image",
+    "process_video",
 ]

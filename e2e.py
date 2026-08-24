@@ -1,14 +1,13 @@
-#!/usr/bin/env python3
-"""
-End-to-end tests for Vidicant Python integration.
+"""End-to-end tests for Vidicant Python integration.
 
 This script tests the Python bindings against the example assets
 to verify that the full media analysis pipeline works correctly.
 """
 
-import vidicant
 import json
 import sys
+
+import vidicant
 
 
 def test_import_and_setup():
@@ -17,10 +16,10 @@ def test_import_and_setup():
     print("TEST: Import and Setup")
     print("=" * 60)
 
-    assert vidicant.is_image_file("examples/sample.jpg") == True
-    assert vidicant.is_image_file("examples/sample.mp4") == False
-    assert vidicant.is_video_file("examples/sample.mp4") == True
-    assert vidicant.is_video_file("examples/sample.jpg") == False
+    assert vidicant.is_image_file("examples/sample.jpg") is True
+    assert vidicant.is_image_file("examples/sample.mp4") is False
+    assert vidicant.is_video_file("examples/sample.mp4") is True
+    assert vidicant.is_video_file("examples/sample.jpg") is False
 
     print("✓ File type detection works correctly")
     print()
@@ -137,6 +136,33 @@ def test_video_motion_detection():
     print()
 
 
+def test_ml_quality_assessment():
+    """Test ML aesthetic and technical quality assessment."""
+    print("=" * 60)
+    print("TEST: ML Aesthetic & Quality Assessment")
+    print("=" * 60)
+
+    # 1. Standard mode (ML disabled)
+    res_no_ml = vidicant.process_image("examples/sample.jpg", enable_ml=False)
+    assert res_no_ml["ml_evaluated"] is False
+    assert res_no_ml["aesthetic_score"] is None
+    assert res_no_ml["technical_quality_score"] is None
+
+    # 2. Non-existent model path should gracefully fallback
+    res_bad_model = vidicant.process_image(
+        "examples/sample.jpg", enable_ml=True, model_path="nonexistent_model.onnx"
+    )
+    assert res_bad_model["ml_evaluated"] is False
+    assert res_bad_model["aesthetic_score"] is None
+
+    # 3. Test model helper functions
+    cache_path = vidicant.get_default_model_path()
+    assert cache_path.name == "aesthetic_mobilenetv2.onnx"
+
+    print("✓ ML quality assessment and fallback logic verified")
+    print()
+
+
 def main():
     """Run all end-to-end tests."""
     print("\n")
@@ -150,6 +176,7 @@ def main():
         test_analyzing_images()
         test_analyzing_videos()
         test_video_motion_detection()
+        test_ml_quality_assessment()
 
         print("=" * 60)
         print("✓ ALL TESTS PASSED!")
@@ -157,12 +184,6 @@ def main():
         return 0
     except AssertionError as e:
         print(f"\n✗ TEST FAILED: {e}")
-        return 1
-    except Exception as e:
-        print(f"\n✗ ERROR: {e}")
-        import traceback
-
-        traceback.print_exc()
         return 1
 
 

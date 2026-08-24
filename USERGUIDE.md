@@ -93,8 +93,13 @@ if vidicant.is_video_file("file.mp4"):
     result = vidicant.process_video("file.mp4")
 ```
 
-#### `process_image(filename: str) -> dict`
+#### `process_image(filename: str, enable_ml: bool = False, model_path: str | None = None) -> dict`
 Analyze an image file and return metrics.
+
+**Parameters:**
+- `filename` (`str`): Path to the image file.
+- `enable_ml` (`bool`, default `False`): When `True`, evaluates neural aesthetic and technical quality via ONNX.
+- `model_path` (`str | None`, optional): Custom ONNX model file path or URL. Defaults to cached `aesthetic_mobilenetv2.onnx`.
 
 **Returns:**
 ```python
@@ -112,6 +117,9 @@ Analyze an image file and return metrics.
     "saturation_level": float,  # Average color saturation (0-255)
     "entropy": float,  # Information content (0-8 bits)
     "histogram": list[list],  # RGB channel histograms [256 bins each]
+    "aesthetic_score": float | None,  # NIMA score [1.0 - 10.0] if enable_ml=True
+    "technical_quality_score": float | None,  # Quality score [0.0 - 1.0] if enable_ml=True
+    "ml_evaluated": bool,  # True if DNN model inference was executed
 }
 ```
 

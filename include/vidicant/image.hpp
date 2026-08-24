@@ -51,6 +51,11 @@ struct ImageMetrics {
   std::vector<int> hue_histogram;
   double sharpness_score;
   std::string noise_type;
+  double aesthetic_score; // Aesthetic score [1.0 - 10.0] via ONNX/DNN (-1.0 if
+                          // not evaluated).
+  double technical_quality_score; // Technical quality score [0.0 - 1.0] (-1.0
+                                  // if not evaluated).
+  bool ml_evaluated;              // True if DNN model inference was executed.
 };
 
 // Class: IImageLoader
@@ -165,8 +170,15 @@ public:
   // Classifies the dominant noise type as "gaussian" or "salt_and_pepper".
   std::string getNoiseType(const std::string &filename);
 
+  // Evaluates aesthetic and technical quality using an ONNX model via OpenCV
+  // DNN. Returns pair of {aesthetic_score (1.0-10.0), technical_quality_score
+  // (0.0-1.0)}.
+  std::pair<double, double> assessQualityDNN(const std::string &filename,
+                                             const std::string &model_path);
+
   // Returns an ImageMetrics struct populated with all analyses for the file.
-  ImageMetrics getMetrics(const std::string &filename);
+  ImageMetrics getMetrics(const std::string &filename,
+                          const std::string &model_path = "");
 };
 
 // Namespace: vidicant
@@ -241,12 +253,18 @@ double compareImages(const std::string &filename1,
 // Convenience function to classify noise type.
 std::string getImageNoiseType(const std::string &filename);
 
+// Convenience function to assess aesthetic & technical quality via ONNX model.
+std::pair<double, double> assessImageQualityDNN(const std::string &filename,
+                                                const std::string &model_path);
+
 // Convenience function to get all image metrics at once.
-ImageMetrics getImageMetrics(const std::string &filename);
+ImageMetrics getImageMetrics(const std::string &filename,
+                             const std::string &model_path = "");
 
 // Processes a batch of image files in parallel and returns their metrics.
 std::vector<ImageMetrics>
-getBatchImageMetrics(const std::vector<std::string> &filenames);
+getBatchImageMetrics(const std::vector<std::string> &filenames,
+                     const std::string &model_path = "");
 
 } // namespace vidicant
 

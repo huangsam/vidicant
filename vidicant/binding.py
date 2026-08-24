@@ -1,7 +1,11 @@
+from __future__ import annotations
+
 import ctypes
 import json
 import platform
 from pathlib import Path
+
+from .models import ensure_model, get_default_model_path
 
 
 def _find_library():
@@ -43,6 +47,9 @@ _lib.vidicant_is_video_file.restype = ctypes.c_bool
 _lib.vidicant_process_image.argtypes = [ctypes.c_char_p]
 _lib.vidicant_process_image.restype = ctypes.c_void_p
 
+_lib.vidicant_process_image_ml.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
+_lib.vidicant_process_image_ml.restype = ctypes.c_void_p
+
 _lib.vidicant_process_video.argtypes = [ctypes.c_char_p]
 _lib.vidicant_process_video.restype = ctypes.c_void_p
 
@@ -60,9 +67,30 @@ def is_video_file(filename: str) -> bool:
     return bool(_lib.vidicant_is_video_file(filename.encode("utf-8")))
 
 
-def process_image(filename: str) -> dict:
-    """Process an image file and return analysis metrics as a dictionary."""
-    raw_ptr = _lib.vidicant_process_image(filename.encode("utf-8"))
+def process_image(
+    filename: str,
+    enable_ml: bool = False,
+    model_path: str | None = None,
+) -> dict:
+    """Process an image file and return analysis metrics as a dictionary.
+
+    Args:
+        filename: Path to the image file.
+        enable_ml: If True, evaluates aesthetic and technical quality via ONNX/DNN.
+        model_path: Optional custom path to an ONNX model file or URL. If None and
+                    enable_ml is True, uses the cached default aesthetic model.
+    """
+    if enable_ml or model_path:
+        resolved = ensure_model(model_path)
+        if resolved:
+            raw_ptr = _lib.vidicant_process_image_ml(
+                filename.encode("utf-8"), resolved.encode("utf-8")
+            )
+        else:
+            raw_ptr = _lib.vidicant_process_image(filename.encode("utf-8"))
+    else:
+        raw_ptr = _lib.vidicant_process_image(filename.encode("utf-8"))
+
     if not raw_ptr:
         raise ValueError(f"Failed to process image: {filename}")
     try:
@@ -82,3 +110,13 @@ def process_video(filename: str) -> dict:
         return json.loads(s)
     finally:
         _lib.vidicant_free_string(raw_ptr)
+
+
+__all__ = [
+    "ensure_model",
+    "get_default_model_path",
+    "is_image_file",
+    "is_video_file",
+    "process_image",
+    "process_video",
+]
