@@ -15,27 +15,9 @@ fn configureOpenCV(b: *std.Build, mod: *std.Build.Module, target: std.Build.Reso
         mod.addIncludePath(.{ .cwd_relative = "/opt/homebrew/opt/opencv/include/opencv5" });
         mod.addIncludePath(.{ .cwd_relative = "/opt/homebrew/opt/opencv/include/opencv4" });
         mod.addLibraryPath(.{ .cwd_relative = "/opt/homebrew/opt/opencv/lib" });
-    } else if (os == .linux) {
-        mod.addIncludePath(.{ .cwd_relative = "/usr/include" });
-        mod.addIncludePath(.{ .cwd_relative = "/usr/include/opencv4" });
-        mod.addIncludePath(.{ .cwd_relative = "/usr/include/opencv5" });
-        mod.addIncludePath(.{ .cwd_relative = "/usr/local/include" });
-        mod.addLibraryPath(.{ .cwd_relative = "/usr/lib" });
-        mod.addLibraryPath(.{ .cwd_relative = "/usr/lib/x86_64-linux-gnu" });
-        mod.addLibraryPath(.{ .cwd_relative = "/usr/lib/aarch64-linux-gnu" });
-        mod.addLibraryPath(.{ .cwd_relative = "/usr/local/lib" });
     } else if (os == .windows) {
         mod.addIncludePath(.{ .cwd_relative = "C:/opencv/build/include" });
         mod.addLibraryPath(.{ .cwd_relative = "C:/opencv/build/x64/vc16/lib" });
-    }
-}
-
-fn configureCppStdLib(mod: *std.Build.Module, target: std.Build.ResolvedTarget) void {
-    mod.link_libc = true;
-    if (target.result.os.tag == .linux) {
-        mod.linkSystemLibrary("stdc++", .{});
-    } else {
-        mod.link_libcpp = true;
     }
 }
 
@@ -43,13 +25,79 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
     const opencv_path = b.option([]const u8, "opencv-path", "Custom path to OpenCV installation directory");
+    const os = target.result.os.tag;
 
-    const cxx_flags: []const []const u8 = if (target.result.os.tag == .linux)
-        &.{ "-std=c++17", "-Wall", "-Wextra", "-stdlib=libstdc++" }
-    else
-        &.{ "-std=c++17", "-Wall", "-Wextra" };
+    // Linux: System OpenCV packages use GNU libstdc++ ABI.
+    // Use host C++ compiler to guarantee ABI compatibility with system OpenCV.
+    if (os == .linux) {
+        const lib_cmd = b.addSystemCommand(&.{
+            "c++",
+            "-std=c++17",
+            "-O3",
+            "-fPIC",
+            "-shared",
+            "-I",
+            "include",
+            "-I",
+            "/usr/include/opencv4",
+            "-I",
+            "/usr/include/opencv5",
+            "-I",
+            "/usr/local/include",
+            "-I",
+            "/usr/include",
+            "src/image.cpp",
+            "src/video.cpp",
+            "src/controller.cpp",
+            "src/vidicant_c_api.cpp",
+            "-lopencv_core",
+            "-lopencv_imgproc",
+            "-lopencv_imgcodecs",
+            "-lopencv_video",
+            "-lopencv_videoio",
+            "-lopencv_objdetect",
+            "-lopencv_dnn",
+            "-o",
+        });
+        const lib_out = lib_cmd.addOutputFileArg("libvidicant.so");
+        const install_lib = b.addInstallFile(lib_out, "lib/libvidicant.so");
+        b.getInstallStep().dependOn(&install_lib.step);
 
-    // 1. Module and Dynamic Library for Python / C-ABI (libvidicant.dylib / .so / .dll)
+        const exe_cmd = b.addSystemCommand(&.{
+            "c++",
+            "-std=c++17",
+            "-O3",
+            "-I",
+            "include",
+            "-I",
+            "/usr/include/opencv4",
+            "-I",
+            "/usr/include/opencv5",
+            "-I",
+            "/usr/local/include",
+            "-I",
+            "/usr/include",
+            "src/main.cpp",
+            "src/controller.cpp",
+            "src/image.cpp",
+            "src/video.cpp",
+            "-lopencv_core",
+            "-lopencv_imgproc",
+            "-lopencv_imgcodecs",
+            "-lopencv_video",
+            "-lopencv_videoio",
+            "-lopencv_objdetect",
+            "-lopencv_dnn",
+            "-o",
+        });
+        const exe_out = exe_cmd.addOutputFileArg("vidicant_cli");
+        const install_exe = b.addInstallFile(exe_out, "bin/vidicant_cli");
+        b.getInstallStep().dependOn(&install_exe.step);
+        return;
+    }
+
+    // macOS / Windows: Use Zig's native Clang toolchain + libc++
+    // 1. Module and Dynamic Library for Python / C-ABI (libvidicant.dylib / .dll)
     const lib_mod = b.createModule(.{
         .target = target,
         .optimize = optimize,
@@ -61,7 +109,11 @@ pub fn build(b: *std.Build) void {
             "src/controller.cpp",
             "src/vidicant_c_api.cpp",
         },
-        .flags = cxx_flags,
+        .flags = &.{
+            "-std=c++17",
+            "-Wall",
+            "-Wextra",
+        },
     });
     lib_mod.addIncludePath(.{ .cwd_relative = "include" });
     configureOpenCV(b, lib_mod, target, opencv_path);
@@ -73,7 +125,8 @@ pub fn build(b: *std.Build) void {
     lib_mod.linkSystemLibrary("opencv_videoio", .{});
     lib_mod.linkSystemLibrary("opencv_objdetect", .{});
     lib_mod.linkSystemLibrary("opencv_dnn", .{});
-    configureCppStdLib(lib_mod, target);
+    lib_mod.link_libc = true;
+    lib_mod.link_libcpp = true;
 
     const lib = b.addLibrary(.{
         .name = "vidicant",
@@ -95,7 +148,11 @@ pub fn build(b: *std.Build) void {
             "src/image.cpp",
             "src/video.cpp",
         },
-        .flags = cxx_flags,
+        .flags = &.{
+            "-std=c++17",
+            "-Wall",
+            "-Wextra",
+        },
     });
     exe_mod.addIncludePath(.{ .cwd_relative = "include" });
     configureOpenCV(b, exe_mod, target, opencv_path);
@@ -107,7 +164,8 @@ pub fn build(b: *std.Build) void {
     exe_mod.linkSystemLibrary("opencv_videoio", .{});
     exe_mod.linkSystemLibrary("opencv_objdetect", .{});
     exe_mod.linkSystemLibrary("opencv_dnn", .{});
-    configureCppStdLib(exe_mod, target);
+    exe_mod.link_libc = true;
+    exe_mod.link_libcpp = true;
 
     const exe = b.addExecutable(.{
         .name = "vidicant_cli",
