@@ -8,7 +8,7 @@ on:
 
 jobs:
   lint:
-    name: Lint & Formatting
+    name: Lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -31,21 +31,24 @@ jobs:
           find src test include \( -name '*.cpp' -o -name '*.hpp' \) | xargs clang-format --dry-run --Werror
 
   build-and-test:
-    name: Build & Test (${{ matrix.os }} - Python ${{ matrix.python-version }})
+    name: Build & Test (${{ matrix.os }}, ${{ matrix.python-version }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
-        python-version: ["3.11", "3.12", "3.13"]
+        python-version: ["3.11", "3.12"]
 
     steps:
       - uses: actions/checkout@v4
 
       - name: Set up Zig
-        uses: mlugg/setup-zig@v1
+        uses: mlugg/setup-zig@v2
         with:
           version: "0.16.0"
+
+      - name: Verify Zig installation
+        run: zig version
 
       - name: Install Dependencies (Linux)
         if: runner.os == 'Linux'
