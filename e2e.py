@@ -256,6 +256,21 @@ def test_ml_quality_assessment():
     print()
 
 
+def test_python_version_compatibility():
+    """Test that current environment is Python 3.11+ and version requirements are enforced."""
+    print("=" * 60)
+    print("TEST: Python Version Compatibility (>= 3.11)")
+    print("=" * 60)
+
+    assert sys.version_info >= (3, 11), (
+        f"Vidicant requires Python 3.11+, got {sys.version_info}"
+    )
+    print(
+        f"✓ Running on supported Python version: {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+    )
+    print()
+
+
 def main():
     """Run all end-to-end tests."""
     print("\n")
@@ -265,6 +280,7 @@ def main():
     print()
 
     try:
+        test_python_version_compatibility()
         test_import_and_setup()
         test_analyzing_images()
         test_analyzing_videos()

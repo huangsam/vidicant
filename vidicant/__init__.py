@@ -4,6 +4,13 @@ A Python package for analyzing images and videos using C++ and OpenCV,
 providing fast, cross-platform media processing capabilities.
 """
 
+import sys
+
+if sys.version_info < (3, 11):  # noqa: UP036
+    raise RuntimeError(
+        f"Vidicant requires Python 3.11 or newer (running on Python {sys.version_info.major}.{sys.version_info.minor})."
+    )
+
 try:
     from .binding import (
         ensure_model,

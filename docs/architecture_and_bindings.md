@@ -57,7 +57,7 @@ To avoid ABI coupling and complex C++ binding tools, the native library exports 
 - Builds both the native shared library (`libvidicant`) and the CLI tool (`vidicant_cli`).
 
 ### C-ABI & `ctypes` vs `pybind11`
-- **Stable ABI**: `ctypes` works across all Python 3.8+ minor versions without recompiling wheels for every CPython ABI tag (`cp38`, `cp39`, `cp310`, `cp311`, `cp312`, `cp313`).
+- **Stable ABI**: `ctypes` works across all Python 3.11+ minor versions without recompiling wheels for every CPython ABI tag (`cp311`, `cp312`, `cp313`, `cp314`).
 - **Zero Build Dependencies**: Users do not need a C++ compiler or wheel building tools in Python environments.
 - **JSON Serialization**: Clean boundary between C++ structs and Python dictionaries.
 

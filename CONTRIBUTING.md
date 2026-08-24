@@ -90,7 +90,7 @@ sudo apt install libopencv-dev
 ### Build Dependencies
 
 - **Zig**: `zig build` acts as compiler driver, linker, and build orchestrator.
-- **Python**: Standard `ctypes` (built into Python 3.8+) loads the native C-ABI shared library.
+- **Python**: Standard `ctypes` (built into Python 3.11+) loads the native C-ABI shared library.
 
 ## Performance Optimization
 

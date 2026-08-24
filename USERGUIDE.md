@@ -16,7 +16,7 @@ pip install vidicant
 ```
 
 ### Requirements
-- Python 3.8+
+- Python 3.11+
 - OpenCV (automatically installed as dependency)
 - NumPy (automatically installed as dependency)
 
