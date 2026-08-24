@@ -13,6 +13,8 @@ PYTHONPATH=. python3 e2e.py
 ruff check . && ruff format .
 # C++ format
 find src test include \( -name '*.cpp' -o -name '*.hpp' \) | xargs clang-format -i
+# Zig format
+zig fmt build.zig
 ```
 
 ## Rules & Constraints
