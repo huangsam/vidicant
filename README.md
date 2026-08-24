@@ -44,7 +44,9 @@ zig build
 
 - **[USERGUIDE.md](USERGUIDE.md)** — Python usage, API reference, practical examples
 - **[CONTRIBUTING.md](CONTRIBUTING.md)** — Building from source, development setup, C++ API
-- **[AGENTS.md](AGENTS.md)** — Project context, development process, Python bindings architecture
+- **[AGENTS.md](AGENTS.md)** — Agent guidelines, repository layout, essential commands
+- **[docs/architecture_and_bindings.md](docs/architecture_and_bindings.md)** — System architecture & Python C-ABI design
+- **[docs/apple_frameworks_comparison.md](docs/apple_frameworks_comparison.md)** — Detailed comparison with Apple Vision & AVFoundation
 
 ## Comparison to Similar Tools
 

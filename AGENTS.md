@@ -1,118 +1,30 @@
-# Development with AI Agents
+# AGENTS.md
 
-This document describes the development process of Vidicant, including AI assistance and project context.
+Cross-platform media analysis library (C++17/OpenCV) with zero-dependency Python `ctypes` bindings and Zig 0.16 build system.
 
-## Project Context
-
-Vidicant was developed as a demonstration project to showcase cross-platform media analysis capabilities using C++ and OpenCV. It serves as an open-source alternative to proprietary frameworks like Apple's Vision and AVFoundation.
-
-## Comparison to Apple's Frameworks
-
-This project demonstrates equivalent functionality to Apple's media processing frameworks:
-
-### Apple's Frameworks
-- **Vision Framework**: Computer vision for iOS/macOS (face/object detection, OCR, image analysis)
-- **AVFoundation**: Multimedia framework (video/audio processing, asset management)
-- **Core Image**: GPU-accelerated image processing (filters, effects)
-
-### Vidicant's Equivalent Features
-
-**Image Analysis (Vision equivalent):**
-- Dimensions, color analysis, edge detection, blur/sharpness, grayscale detection
-
-**Video Analysis (AVFoundation equivalent):**
-- Metadata, frame extraction, motion analysis, brightness, format handling
-
-**Processing Architecture (Core Image equivalent):**
-- OpenCV-based processing, extensible design, cross-platform
-
-## Key Differences
-
-| Aspect | Apple's Frameworks | Vidicant |
-|--------|-------------------|----------|
-| **Platforms** | iOS, macOS only | Windows, Linux, macOS |
-| **Dependencies** | Proprietary Apple APIs | Open-source OpenCV |
-| **Language** | Swift/Objective-C | C++ |
-| **Cost** | Free (Apple ecosystem) | Free (open-source) |
-| **Customization** | Limited by Apple APIs | Fully extensible |
-| **Distribution** | App Store only | Any platform |
-| **Code Density** | More verbose, easier to read | More concise, higher density |
-
-### Development Experience Insights
-
-OpenCV proved more efficient than Apple's APIs: fewer lines of code, concise C++ APIs, direct access to optimized algorithms, and greater flexibility. While Swift offers better readability, C++/OpenCV excelled in implementing complex vision tasks with minimal boilerplate.
-
-## Development Process
-
-This project was developed using AI-assisted coding tools, demonstrating modern software development practices:
-
-### AI Assistance Used
-- Code generation and algorithm implementation
-- Architecture and design pattern development
-- Documentation creation
-- Testing structure and implementation
-
-### Development Goals
-1. Demonstrate cross-platform media analysis without platform-specific APIs
-2. Implement clean, extensible C++ architecture
-3. Deliver high-performance media processing using OpenCV
-4. Provide comprehensive documentation and examples
-
-## Architecture
-
-Vidicant uses an interface-based design for extensibility:
-
-- `IImageLoader` / `IVideoLoader`: Abstract interfaces for media loading
-- `OpenCVImageLoader` / `OpenCVVideoLoader`: OpenCV-based implementations
-- `ImageHandler` / `VideoHandler`: High-level analysis classes
-- Convenience functions in the `vidicant` namespace for easy usage
-
-This design allows swapping backends or adding new analysis methods without changing the API.
-
-## Testing
-
-The project includes unit tests for all major functionality:
+## Quick Commands
 
 ```bash
-# Run all tests
-ctest --test-dir build
-
-# Run with verbose output
-ctest --test-dir build -V
+# Build libvidicant & CLI
+zig build
+# Run test suite
+PYTHONPATH=. python3 e2e.py
+# Python lint & format
+ruff check . && ruff format .
+# C++ format
+find src test include \( -name '*.cpp' -o -name '*.hpp' \) | xargs clang-format -i
 ```
 
-## Future Enhancements
+## Rules & Constraints
 
-While this is primarily a demonstration project, potential extensions include:
+- **Python package (`vidicant/`)**: Pure stdlib only (`ctypes`, `json`, `pathlib`). No external runtime dependencies.
+- **C-ABI (`src/vidicant_c_api.cpp`)**: `extern "C"` JSON string APIs; always pair allocations with `free_json_string`.
+- **Build (`build.zig`)**: Single source of truth for native builds; keep C++17 compatibility.
+- **Verification**: Always verify changes with `PYTHONPATH=. python3 e2e.py`.
 
-- **Machine Learning Integration**: Add OpenCV DNN for classification/detection
-- **GPU Acceleration**: Utilize OpenCV CUDA for performance improvements
-- **Additional Analysis**: Face detection, object recognition, optical flow
-- **Real-time Processing**: Webcam/streaming video analysis
+## References
 
-## Python Bindings Implementation
-
-The C++ core is exposed to Python via a clean C-ABI and Python's built-in `ctypes`, allowing broader adoption and integration into data science workflows with zero external build dependencies:
-
-### Architecture
-- **C++ Layer** (`src/controller.cpp`): Core media analysis using OpenCV
-- **C-ABI Wrapper** (`src/vidicant_c_api.cpp`): Clean `extern "C"` functions returning JSON strings
-- **Python Driver** (`vidicant/binding.py`): Zero-dependency `ctypes` wrapper loading `libvidicant.dylib`/`.so`/`.dll`
-- **Build System** (`build.zig`): Hermetic Zig build script compiling C++ and linking OpenCV natively
-
-### Key Technical Decisions
-- **Zig 0.16 build system** replaces CMake, providing multi-platform cross-compilation out of the box
-- **C-ABI (`ctypes`)** replaces `pybind11`, avoiding Python minor version coupling and enabling Python Stable ABI compatibility
-- **No Docker required**: Compiles natively on macOS/Linux/Windows in seconds against Homebrew OpenCV or system libraries
-
-### Usage Pattern
-Users can analyze media in Python with automatic JSON type conversion (C++ metrics ↔ Python dicts):
-
-```python
-import vidicant
-
-result = vidicant.process_image("photo.jpg")  # Returns dict with metrics
-result = vidicant.process_video("video.mp4")  # Returns video analysis
-```
-
-This enables tight integration with ML/data science ecosystems (numpy, pandas, scikit-learn, PyTorch, TensorFlow).
+- [USERGUIDE.md](USERGUIDE.md)
+- [CONTRIBUTING.md](CONTRIBUTING.md)
+- [docs/architecture_and_bindings.md](docs/architecture_and_bindings.md)
+- [docs/apple_frameworks_comparison.md](docs/apple_frameworks_comparison.md)

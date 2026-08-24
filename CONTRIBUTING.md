@@ -67,7 +67,7 @@ This design allows swapping backends or adding new analysis methods without chan
 
 ## Python Bindings
 
-Vidicant provides a zero-dependency Python package using Python's built-in `ctypes` over the native C-ABI (`libvidicant.dylib` / `.so` / `.dll`). See [USERGUIDE.md](USERGUIDE.md) and [AGENTS.md](AGENTS.md#python-bindings-implementation) for details.
+Vidicant provides a zero-dependency Python package using Python's built-in `ctypes` over the native C-ABI (`libvidicant.dylib` / `.so` / `.dll`). See [USERGUIDE.md](USERGUIDE.md) and [docs/architecture_and_bindings.md](docs/architecture_and_bindings.md) for details.
 
 To test the Python extension during development:
 
