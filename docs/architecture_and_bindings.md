@@ -44,7 +44,7 @@ To avoid ABI coupling and complex C++ binding tools, the native library exports 
 ### 3. Python Driver (`vidicant/`)
 - Pure Python using the built-in `ctypes` module.
 - Zero third-party dependencies (no numpy/pybind11 required at install time).
-- Locates `libvidicant.dylib` / `.so` / `.dll` relative to package location or build output.
+- Locates `libvidicant.dylib` / `.so` relative to package location or build output.
 - Transparent on-demand model download and cache manager (`vidicant/models.py`) targeting `~/.cache/vidicant/models/`.
 - Automatically handles serialization: C++ metrics JSON $\rightarrow$ Python `dict`.
 

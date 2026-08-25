@@ -29,7 +29,7 @@ zig build
 - **Video Analysis**: FPS, frame count, duration, motion score, scene cuts, shot stats, flicker, best thumbnail selection.
 - **Neural Engine**: Semantic classification (Top-K), object/face detection (NMS), generic tensor embeddings, aesthetic/quality rating.
 - **Zero-Dependency Python**: Pure stdlib `ctypes` runtime linking native `libvidicant`.
-- **Cross-Platform**: macOS, Linux, and Windows support via Zig 0.16 build system.
+- **Cross-Platform**: macOS and Linux support via Zig 0.16 build system.
 
 ## Documentation
 

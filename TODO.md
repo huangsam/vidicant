@@ -6,11 +6,11 @@ This document tracks planned improvements and feature roadmaps for Vidicant, pri
 
 ## Scope & Philosophy
 
-- **Target Platforms**: macOS (Apple Silicon & Intel) and Linux (x86_64 & aarch64). Windows users are supported via WSL2.
+- **Target Platforms**: macOS (Apple Silicon & Intel) and Linux (x86_64 & aarch64). Windows users can run seamlessly via WSL2.
 - **Core Value**: Fast, deterministic C++17/OpenCV heuristics with pure stdlib Python `ctypes` bindings.
 - **Out of Scope (Anti-Goals)**:
     - In-the-loop GPU training data loaders (handled better by PyTorch/DALI).
-    - Native Windows MSVC DLL toolchains (handled seamlessly via WSL2).
+    - Native MSVC toolchain maintenance (WSL2 recommended for Windows development).
     - Adding external runtime dependencies to the Python package.
 
 ---

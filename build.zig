@@ -88,9 +88,6 @@ fn configureOpenCV(b: *std.Build, mod: *std.Build.Module, target: std.Build.Reso
         mod.addIncludePath(.{ .cwd_relative = "/opt/homebrew/opt/opencv/include/opencv5" });
         mod.addIncludePath(.{ .cwd_relative = "/opt/homebrew/opt/opencv/include/opencv4" });
         mod.addLibraryPath(.{ .cwd_relative = "/opt/homebrew/opt/opencv/lib" });
-    } else if (os == .windows) {
-        mod.addIncludePath(.{ .cwd_relative = "C:/opencv/build/include" });
-        mod.addLibraryPath(.{ .cwd_relative = "C:/opencv/build/x64/vc16/lib" });
     }
 }
 
@@ -218,7 +215,7 @@ pub fn build(b: *std.Build) void {
         return;
     }
 
-    // macOS / Windows: Use Zig's native Clang toolchain + libc++
+    // macOS: Use Zig's native Clang toolchain + libc++
     const lib_mod = createVidicantModule(b, target, optimize, &lib_sources, opencv_path, false);
     const lib = b.addLibrary(.{
         .name = "vidicant",

@@ -34,7 +34,7 @@ This document details how Vidicant compares to Apple's proprietary media process
 
 | Aspect | Apple's Frameworks | Vidicant |
 |--------|-------------------|----------|
-| **Platforms** | iOS, macOS only | Windows, Linux, macOS |
+| **Platforms** | iOS, macOS only | Linux, macOS |
 | **Dependencies** | Proprietary Apple APIs | Open-source OpenCV |
 | **Language** | Swift / Objective-C | C++17 (with Python bindings) |
 | **Cost** | Free (Apple ecosystem only) | Free (open-source MIT) |
@@ -45,6 +45,6 @@ This document details how Vidicant compares to Apple's proprietary media process
 ## Development Insights
 
 OpenCV provides significant advantages for cross-platform workflows:
-- **Portability**: Code runs identically across macOS, Linux, and Windows.
+- **Portability**: Code runs identically across macOS and Linux.
 - **Algorithm Access**: Direct access to raw OpenCV algorithms without platform-specific abstraction layers.
 - **Boilerplate Reduction**: C++ and OpenCV implement vision pipelines with significantly fewer lines of setup code than AVFoundation pipelines.
