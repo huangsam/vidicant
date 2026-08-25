@@ -75,6 +75,51 @@ TEST(VideoHandlerTest, OpenFail) {
   EXPECT_FALSE(opened);
 }
 
+TEST(VideoHandlerTest, ExtractFirstFrameWithMock) {
+  auto mockLoader = std::make_unique<MockVideoLoader>();
+  cv::Mat fakeFrame(100, 200, CV_8UC3, cv::Scalar(10, 20, 30));
+  EXPECT_CALL(*mockLoader, open("mock.mp4")).WillOnce(::testing::Return(true));
+  EXPECT_CALL(*mockLoader, readFrame()).WillOnce(::testing::Return(fakeFrame));
+
+  VideoHandler handler(std::move(mockLoader));
+  handler.open("mock.mp4");
+  cv::Mat frame = handler.extractFirstFrame();
+
+  EXPECT_EQ(frame.cols, 200);
+  EXPECT_EQ(frame.rows, 100);
+  EXPECT_EQ(frame.channels(), 3);
+}
+
+TEST(VideoHandlerTest, GetAverageBrightnessWithMock) {
+  auto mockLoader = std::make_unique<MockVideoLoader>();
+  cv::Mat frame1(10, 10, CV_8UC3, cv::Scalar(100, 100, 100));
+  cv::Mat frame2(10, 10, CV_8UC3, cv::Scalar(200, 200, 200));
+  cv::Mat emptyFrame;
+
+  EXPECT_CALL(*mockLoader, open("mock.mp4")).WillOnce(::testing::Return(true));
+  EXPECT_CALL(*mockLoader, readFrame())
+      .WillOnce(::testing::Return(frame1))
+      .WillOnce(::testing::Return(frame2))
+      .WillOnce(::testing::Return(emptyFrame));
+
+  VideoHandler handler(std::move(mockLoader));
+  handler.open("mock.mp4");
+  double brightness = handler.getAverageBrightness();
+
+  EXPECT_NEAR(brightness, 150.0, 1e-3);
+}
+
+TEST(VideoHandlerTest, IsGrayscaleWithMock) {
+  auto mockLoader = std::make_unique<MockVideoLoader>();
+  cv::Mat grayFrame(10, 10, CV_8UC1, cv::Scalar(128));
+  EXPECT_CALL(*mockLoader, open("mock.mp4")).WillOnce(::testing::Return(true));
+  EXPECT_CALL(*mockLoader, readFrame()).WillOnce(::testing::Return(grayFrame));
+
+  VideoHandler handler(std::move(mockLoader));
+  handler.open("mock.mp4");
+  EXPECT_TRUE(handler.isGrayscale());
+}
+
 // Tests using real files for methods that need frame reading
 TEST(VideoGlobalTest, GetVideoFrameCountReal) {
   int frameCount =

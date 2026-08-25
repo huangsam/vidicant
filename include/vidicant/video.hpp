@@ -9,6 +9,7 @@
 #ifndef VIDICANT_VIDEO_HPP
 #define VIDICANT_VIDEO_HPP
 
+#include "vidicant/types.hpp"
 #include <array>
 #include <memory>
 #include <opencv2/core.hpp>
@@ -22,39 +23,6 @@ class Mat;
 } // namespace cv
 
 namespace vidicant {
-
-// Struct: ShotLengthStats
-// Statistics over shot (scene segment) durations in a video, in frames.
-struct ShotLengthStats {
-  double mean;   // Average shot length in frames.
-  double stddev; // Standard deviation of shot lengths.
-  double min;    // Shortest shot in frames.
-  double max;    // Longest shot in frames.
-  int count;     // Total number of shots.
-};
-
-// Struct: VideoMetrics
-// Aggregates all per-video analysis results into a single object.
-struct VideoMetrics {
-  int frame_count;
-  double fps;
-  int width;
-  int height;
-  double duration;
-  bool is_grayscale;
-  double average_brightness;
-  double motion_score;
-  std::vector<std::array<double, 3>> dominant_colors;
-  double frame_rate_stability;
-  double color_consistency;
-  double optical_flow_magnitude;
-  bool has_audio_track;
-  ShotLengthStats shot_length_stats;
-  double flicker_score;
-  int best_thumbnail_frame;
-  std::vector<double> temporal_brightness_curve;
-  std::string codec_fourcc;
-};
 
 // Class: IVideoLoader
 // Abstract interface for video loading and frame reading operations.

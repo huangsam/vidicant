@@ -1,26 +1,16 @@
+// File: video.cpp
+// Implementation of video loader, VideoHandler coordinator, and public video
+// functions.
+
 #include "vidicant/video.hpp"
+#include "core/video_ops.hpp"
 #include <algorithm>
 #include <cmath>
 #include <iostream>
 #include <numeric>
+#include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
-#include <opencv2/opencv.hpp>
-#include <opencv2/video/tracking.hpp>
 #include <vector>
-
-// Maximum number of consecutive frame pairs sampled for optical flow.
-// Balances flow estimation accuracy against processing time.
-constexpr int kOpticalFlowMaxPairs = 20;
-
-// Maximum number of frames sampled for per-frame brightness analyses
-// (flicker score, temporal brightness curve).  Caps memory and runtime for
-// long videos while still capturing meaningful temporal patterns.
-constexpr int kMaxBrightnessCurveFrames = 100;
-
-// Number of frame pairs compared when computing video similarity.
-// 10 pairs give a lightweight but representative cross-video histogram
-// distance; increasing it improves accuracy at the cost of more I/O.
-constexpr int kVideoCompareSampleCount = 10;
 
 namespace vidicant {
 
@@ -54,41 +44,42 @@ VideoHandler::VideoHandler(std::unique_ptr<IVideoLoader> loader)
 
 bool VideoHandler::open(const std::string &filename) {
   filename_ = filename;
-  return loader_->open(filename);
+  return loader_ && loader_->open(filename);
 }
 
-int VideoHandler::getFrameCount() { return loader_->getFrameCount(); }
+int VideoHandler::getFrameCount() {
+  return loader_ ? loader_->getFrameCount() : -1;
+}
 
-double VideoHandler::getFPS() { return loader_->getFPS(); }
+double VideoHandler::getFPS() { return loader_ ? loader_->getFPS() : -1.0; }
 
 std::pair<int, int> VideoHandler::getResolution() {
-  return loader_->getResolution();
+  return loader_ ? loader_->getResolution() : std::make_pair(-1, -1);
 }
 
 double VideoHandler::getDuration() {
+  if (!loader_)
+    return -1.0;
   int frameCount = loader_->getFrameCount();
   double fps = loader_->getFPS();
-  if (fps <= 0)
+  if (fps <= 0.0)
     return -1.0;
-  return frameCount / fps;
+  return static_cast<double>(frameCount) / fps;
 }
 
 cv::Mat VideoHandler::extractFirstFrame() {
-  // Create a temporary loader to read the first frame
-  auto tempLoader = std::make_unique<OpenCVVideoLoader>();
-  if (!tempLoader->open(filename_))
+  if (!loader_ || (!filename_.empty() && !loader_->open(filename_)))
     return cv::Mat();
-  return tempLoader->readFrame();
+  return loader_->readFrame();
 }
 
 double VideoHandler::getAverageBrightness() {
-  auto tempLoader = std::make_unique<OpenCVVideoLoader>();
-  if (!tempLoader->open(filename_))
+  if (!loader_ || (!filename_.empty() && !loader_->open(filename_)))
     return -1.0;
-  cv::Mat frame;
+
   double totalBrightness = 0.0;
   int frameCount = 0;
-  frame = tempLoader->readFrame();
+  cv::Mat frame = loader_->readFrame();
   while (!frame.empty()) {
     cv::Scalar mean = cv::mean(frame);
     double brightness =
@@ -96,15 +87,15 @@ double VideoHandler::getAverageBrightness() {
     totalBrightness += brightness;
     frameCount++;
     if (frameCount > 100)
-      break; // Limit to first 100 frames for speed
-    frame = tempLoader->readFrame();
+      break;
+    frame = loader_->readFrame();
   }
-  return frameCount > 0 ? totalBrightness / frameCount : -1.0;
+  return frameCount > 0 ? (totalBrightness / frameCount) : -1.0;
 }
 
 bool VideoHandler::isGrayscale() {
   cv::Mat frame = extractFirstFrame();
-  return frame.channels() == 1;
+  return !frame.empty() && frame.channels() == 1;
 }
 
 bool VideoHandler::saveFirstFrameAsImage(const std::string &imagePath) {
@@ -115,12 +106,13 @@ bool VideoHandler::saveFirstFrameAsImage(const std::string &imagePath) {
 }
 
 double VideoHandler::getMotionScore() {
-  auto tempLoader = std::make_unique<OpenCVVideoLoader>();
-  if (!tempLoader->open(filename_))
+  if (!loader_ || (!filename_.empty() && !loader_->open(filename_)))
     return -1.0;
-  cv::Mat prevFrame = tempLoader->readFrame();
+
+  cv::Mat prevFrame = loader_->readFrame();
   if (prevFrame.empty())
     return 0.0;
+
   cv::Mat prevGray;
   if (prevFrame.channels() == 1)
     prevGray = prevFrame;
@@ -129,381 +121,212 @@ double VideoHandler::getMotionScore() {
 
   double totalMotion = 0.0;
   int frameCount = 1;
-  cv::Mat currFrame = tempLoader->readFrame();
-  while (!currFrame.empty() && frameCount < 50) { // Limit to 50 frames
+  cv::Mat currFrame = loader_->readFrame();
+  while (!currFrame.empty() && frameCount < 50) {
     cv::Mat grayCurr;
     if (currFrame.channels() == 1)
       grayCurr = currFrame;
     else
       cv::cvtColor(currFrame, grayCurr, cv::COLOR_BGR2GRAY);
-    cv::Mat diff;
-    cv::absdiff(prevGray, grayCurr, diff);
-    cv::Scalar meanDiff = cv::mean(diff);
-    totalMotion += meanDiff[0];
+
+    totalMotion += core::calculateFrameMotion(prevGray, grayCurr);
     prevGray = grayCurr;
     frameCount++;
-    currFrame = tempLoader->readFrame();
+    currFrame = loader_->readFrame();
   }
-  return frameCount > 1 ? totalMotion / (frameCount - 1) : 0.0;
+  return frameCount > 1 ? (totalMotion / (frameCount - 1)) : 0.0;
 }
 
 std::vector<std::array<double, 3>> VideoHandler::getDominantColors() {
-  auto tempLoader = std::make_unique<OpenCVVideoLoader>();
-  if (!tempLoader->open(filename_))
+  if (!loader_ || (!filename_.empty() && !loader_->open(filename_)))
     return {};
+
   std::vector<cv::Mat> frames;
-  cv::Mat frame;
   int count = 0;
-  frame = tempLoader->readFrame();
-  while (!frame.empty() && count < 10) { // Sample first 10 frames
+  cv::Mat frame = loader_->readFrame();
+  while (!frame.empty() && count < 10) {
     frames.push_back(frame.clone());
     count++;
-    frame = tempLoader->readFrame();
-  }
-  if (frames.empty())
-    return {};
-
-  // Concatenate all frames into one big image for k-means
-  cv::Mat data;
-  for (const auto &f : frames) {
-    cv::Mat temp;
-    f.convertTo(temp, CV_32F);
-    temp = temp.reshape(1, temp.total());
-    if (data.empty()) {
-      data = temp;
-    } else {
-      cv::vconcat(data, temp, data);
-    }
+    frame = loader_->readFrame();
   }
 
-  std::vector<int> labels;
-  cv::Mat centers;
-  cv::kmeans(data, 3, labels,
-             cv::TermCriteria(cv::TermCriteria::EPS + cv::TermCriteria::COUNT,
-                              10, 1.0),
-             3, cv::KMEANS_PP_CENTERS, centers);
-
-  std::vector<std::array<double, 3>> dominantColors;
-  for (int i = 0; i < 3; ++i) {
-    dominantColors.push_back({centers.at<float>(i, 0), centers.at<float>(i, 1),
-                              centers.at<float>(i, 2)});
-  }
-  return dominantColors;
+  return core::extractVideoDominantColors(frames, 3);
 }
 
 std::vector<int> VideoHandler::detectSceneChanges(double threshold) {
-  auto tempLoader = std::make_unique<OpenCVVideoLoader>();
-  if (!tempLoader->open(filename_))
+  if (!loader_ || (!filename_.empty() && !loader_->open(filename_)))
     return {};
-  cv::Mat prevFrame = tempLoader->readFrame();
+
+  cv::Mat prevFrame = loader_->readFrame();
   if (prevFrame.empty())
     return {};
+
   cv::Mat prevGray;
   if (prevFrame.channels() == 1)
     prevGray = prevFrame;
   else
     cv::cvtColor(prevFrame, prevGray, cv::COLOR_BGR2GRAY);
+
   std::vector<int> sceneChanges;
   int frameIndex = 1;
-  cv::Mat currFrame = tempLoader->readFrame();
+  cv::Mat currFrame = loader_->readFrame();
   while (!currFrame.empty()) {
     cv::Mat grayCurr;
     if (currFrame.channels() == 1)
       grayCurr = currFrame;
     else
       cv::cvtColor(currFrame, grayCurr, cv::COLOR_BGR2GRAY);
-    cv::Mat diff;
-    cv::absdiff(prevGray, grayCurr, diff);
-    cv::Scalar meanDiff = cv::mean(diff);
-    if (meanDiff[0] > threshold) {
+
+    double motion = core::calculateFrameMotion(prevGray, grayCurr);
+    if (motion > threshold) {
       sceneChanges.push_back(frameIndex);
     }
     prevGray = grayCurr;
     frameIndex++;
-    currFrame = tempLoader->readFrame();
+    currFrame = loader_->readFrame();
   }
   return sceneChanges;
 }
 
 double VideoHandler::getFrameRateStability() {
-  // For simplicity, we'll check if FPS is consistent across the video
-  // In a real implementation, you'd analyze frame timestamps
   double fps = getFPS();
-  if (fps <= 0)
+  if (fps <= 0.0)
     return -1.0;
-  // This is a simplified implementation - real frame rate stability
-  // would require analyzing actual frame timing
-  return 0.0; // Perfect stability for now (placeholder)
+  return 0.0; // Simplified placeholder
 }
 
 double VideoHandler::getColorConsistency() {
-  auto tempLoader = std::make_unique<OpenCVVideoLoader>();
-  if (!tempLoader->open(filename_))
+  if (!loader_ || (!filename_.empty() && !loader_->open(filename_)))
     return -1.0;
-  cv::Mat frame;
+
   std::vector<double> brightnesses;
   int count = 0;
-  frame = tempLoader->readFrame();
-  while (!frame.empty() && count < 50) { // Sample 50 frames
+  cv::Mat frame = loader_->readFrame();
+  while (!frame.empty() && count < 50) {
     cv::Scalar mean = cv::mean(frame);
     double brightness =
         (frame.channels() == 1) ? mean[0] : (mean[0] + mean[1] + mean[2]) / 3.0;
     brightnesses.push_back(brightness);
     count++;
-    frame = tempLoader->readFrame();
+    frame = loader_->readFrame();
   }
-  if (brightnesses.empty())
-    return -1.0;
-  // Calculate coefficient of variation (lower = more consistent)
-  double mean = std::accumulate(brightnesses.begin(), brightnesses.end(), 0.0) /
-                brightnesses.size();
-  double variance = 0.0;
-  for (double b : brightnesses) {
-    variance += (b - mean) * (b - mean);
-  }
-  variance /= brightnesses.size();
-  double stddev = sqrt(variance);
-  return mean > 0 ? (stddev / mean) : 0.0; // Coefficient of variation
+
+  return core::calculateColorConsistency(brightnesses);
 }
 
 double VideoHandler::getOpticalFlowMagnitude() {
-  auto tempLoader = std::make_unique<OpenCVVideoLoader>();
-  if (!tempLoader->open(filename_))
+  if (!loader_ || (!filename_.empty() && !loader_->open(filename_)))
     return -1.0;
 
-  cv::Mat prevFrame = tempLoader->readFrame();
-  if (prevFrame.empty())
-    return 0.0;
-  cv::Mat prevGray;
-  if (prevFrame.channels() == 1)
-    prevGray = prevFrame;
-  else
-    cv::cvtColor(prevFrame, prevGray, cv::COLOR_BGR2GRAY);
-
-  double totalMagnitude = 0.0;
-  int pairCount = 0;
-
-  cv::Mat currFrame = tempLoader->readFrame();
-  while (!currFrame.empty() && pairCount < kOpticalFlowMaxPairs) {
-    cv::Mat currGray;
-    if (currFrame.channels() == 1)
-      currGray = currFrame;
-    else
-      cv::cvtColor(currFrame, currGray, cv::COLOR_BGR2GRAY);
-
-    cv::Mat flow;
-    cv::calcOpticalFlowFarneback(prevGray, currGray, flow, 0.5, 3, 15, 3, 5,
-                                 1.2, 0);
-
-    // Split flow into x and y components, compute magnitude
-    std::vector<cv::Mat> flowParts(2);
-    cv::split(flow, flowParts);
-    cv::Mat magnitude, angle;
-    cv::cartToPolar(flowParts[0], flowParts[1], magnitude, angle);
-    totalMagnitude += cv::mean(magnitude)[0];
-
-    prevGray = currGray;
-    pairCount++;
-    currFrame = tempLoader->readFrame();
+  std::vector<cv::Mat> frames;
+  int count = 0;
+  cv::Mat frame = loader_->readFrame();
+  while (!frame.empty() && count <= core::kOpticalFlowMaxPairs) {
+    frames.push_back(frame.clone());
+    count++;
+    frame = loader_->readFrame();
   }
-  return pairCount > 0 ? totalMagnitude / pairCount : 0.0;
+
+  return core::calculateOpticalFlowMagnitude(frames,
+                                             core::kOpticalFlowMaxPairs);
 }
 
 bool VideoHandler::hasAudioTrack() {
-  auto tempLoader = std::make_unique<OpenCVVideoLoader>();
-  if (!tempLoader->open(filename_))
+  if (!loader_ || (!filename_.empty() && !loader_->open(filename_)))
     return false;
-  return tempLoader->getProperty(cv::CAP_PROP_AUDIO_BASE_INDEX) >= 0.0;
+  return loader_->getProperty(cv::CAP_PROP_AUDIO_BASE_INDEX) >= 0.0;
 }
 
 ShotLengthStats VideoHandler::getShotLengthStats(double threshold) {
   std::vector<int> changes = detectSceneChanges(threshold);
-  int totalFrames = loader_->getFrameCount();
-
-  std::vector<double> lengths;
-  int prev = 0;
-  for (int changeFrame : changes) {
-    lengths.push_back(static_cast<double>(changeFrame - prev));
-    prev = changeFrame;
-  }
-  // Last shot to end of video
-  lengths.push_back(static_cast<double>(totalFrames - prev));
-
-  double meanVal =
-      std::accumulate(lengths.begin(), lengths.end(), 0.0) / lengths.size();
-  double minVal = *std::min_element(lengths.begin(), lengths.end());
-  double maxVal = *std::max_element(lengths.begin(), lengths.end());
-
-  double variance = 0.0;
-  for (double l : lengths)
-    variance += (l - meanVal) * (l - meanVal);
-  variance /= lengths.size();
-
-  return {meanVal, std::sqrt(variance), minVal, maxVal,
-          static_cast<int>(lengths.size())};
+  int totalFrames = getFrameCount();
+  return core::calculateShotLengthStats(changes, totalFrames);
 }
 
 double VideoHandler::getFlickerScore() {
-  auto tempLoader = std::make_unique<OpenCVVideoLoader>();
-  if (!tempLoader->open(filename_))
+  if (!loader_ || (!filename_.empty() && !loader_->open(filename_)))
     return -1.0;
 
   std::vector<double> brightnesses;
-  cv::Mat frame = tempLoader->readFrame();
-  while (!frame.empty() &&
-         static_cast<int>(brightnesses.size()) < kMaxBrightnessCurveFrames) {
+  cv::Mat frame = loader_->readFrame();
+  while (!frame.empty() && static_cast<int>(brightnesses.size()) <
+                               core::kMaxBrightnessCurveFrames) {
     cv::Scalar mean = cv::mean(frame);
     double brightness =
         (frame.channels() == 1) ? mean[0] : (mean[0] + mean[1] + mean[2]) / 3.0;
     brightnesses.push_back(brightness);
-    frame = tempLoader->readFrame();
+    frame = loader_->readFrame();
   }
 
-  if (brightnesses.size() < 2)
-    return 0.0;
-
-  // Compute first differences
-  std::vector<double> diffs;
-  for (size_t i = 1; i < brightnesses.size(); ++i) {
-    diffs.push_back(brightnesses[i] - brightnesses[i - 1]);
-  }
-
-  double meanDiff =
-      std::accumulate(diffs.begin(), diffs.end(), 0.0) / diffs.size();
-  double variance = 0.0;
-  for (double d : diffs)
-    variance += (d - meanDiff) * (d - meanDiff);
-  variance /= diffs.size();
-  return std::sqrt(variance);
+  return core::calculateFlickerScore(brightnesses);
 }
 
 int VideoHandler::getBestThumbnailIndex() {
-  auto tempLoader = std::make_unique<OpenCVVideoLoader>();
-  if (!tempLoader->open(filename_))
+  if (!loader_ || (!filename_.empty() && !loader_->open(filename_)))
     return -1;
 
-  int totalFrames = tempLoader->getFrameCount();
-  // Sample ~20 evenly-spaced frames across the full video.
+  int totalFrames = loader_->getFrameCount();
   int stepSize = std::max(1, totalFrames / 20);
 
   int bestIndex = 0;
   double bestScore = -1.0;
   int frameIndex = 0;
 
-  cv::Mat frame = tempLoader->readFrame();
+  cv::Mat frame = loader_->readFrame();
   while (!frame.empty()) {
     if (frameIndex % stepSize == 0) {
-      cv::Mat gray;
-      if (frame.channels() > 1)
-        cv::cvtColor(frame, gray, cv::COLOR_BGR2GRAY);
-      else
-        gray = frame;
-
-      // Sharpness: Laplacian variance
-      cv::Mat laplacian;
-      cv::Laplacian(gray, laplacian, CV_64F);
-      cv::Scalar lMean, lStddev;
-      cv::meanStdDev(laplacian, lMean, lStddev);
-      double blurScore = lStddev[0] * lStddev[0];
-
-      // Brightness score: parabola penalizing very dark or very bright frames
-      cv::Scalar brightness = cv::mean(gray);
-      double brightnessPenalty = 1.0 - std::abs(brightness[0] - 128.0) / 128.0;
-      brightnessPenalty = std::max(0.0, brightnessPenalty);
-
-      double score = blurScore * brightnessPenalty;
-      if (score > bestScore) {
-        bestScore = score;
-        bestIndex = frameIndex;
-      }
+      core::evaluateThumbnailFrame(frame, frameIndex, bestScore, bestIndex);
     }
     frameIndex++;
-    frame = tempLoader->readFrame();
+    frame = loader_->readFrame();
   }
   return bestIndex;
 }
 
 std::vector<double> VideoHandler::getTemporalBrightnessCurve() {
-  auto tempLoader = std::make_unique<OpenCVVideoLoader>();
-  if (!tempLoader->open(filename_))
+  if (!loader_ || (!filename_.empty() && !loader_->open(filename_)))
     return {};
 
   std::vector<double> curve;
-  cv::Mat frame = tempLoader->readFrame();
+  cv::Mat frame = loader_->readFrame();
   while (!frame.empty() &&
-         static_cast<int>(curve.size()) < kMaxBrightnessCurveFrames) {
+         static_cast<int>(curve.size()) < core::kMaxBrightnessCurveFrames) {
     cv::Scalar mean = cv::mean(frame);
     double brightness =
         (frame.channels() == 1) ? mean[0] : (mean[0] + mean[1] + mean[2]) / 3.0;
     curve.push_back(brightness);
-    frame = tempLoader->readFrame();
+    frame = loader_->readFrame();
   }
   return curve;
 }
 
 std::string VideoHandler::getCodecFourcc() {
-  auto tempLoader = std::make_unique<OpenCVVideoLoader>();
-  if (!tempLoader->open(filename_))
+  if (!loader_ || (!filename_.empty() && !loader_->open(filename_)))
     return "";
-
-  double fourccCode = tempLoader->getProperty(cv::CAP_PROP_FOURCC);
-  if (fourccCode <= 0.0)
-    return "";
-
-  int fourcc = static_cast<int>(fourccCode);
-  char chars[5];
-  chars[0] = static_cast<char>(fourcc & 0xFF);
-  chars[1] = static_cast<char>((fourcc >> 8) & 0xFF);
-  chars[2] = static_cast<char>((fourcc >> 16) & 0xFF);
-  chars[3] = static_cast<char>((fourcc >> 24) & 0xFF);
-  chars[4] = '\0';
-  return std::string(chars);
+  double fourccCode = loader_->getProperty(cv::CAP_PROP_FOURCC);
+  return core::decodeFourcc(fourccCode);
 }
 
 double VideoHandler::compareVideos(const std::string &otherFilename) {
-  auto loader1 = std::make_unique<OpenCVVideoLoader>();
-  auto loader2 = std::make_unique<OpenCVVideoLoader>();
-  if (!loader1->open(filename_) || !loader2->open(otherFilename))
+  if (!loader_ || (!filename_.empty() && !loader_->open(filename_)))
     return -1.0;
 
-  const int sampleCount = kVideoCompareSampleCount;
-  const int histSize = 64;
-  float range[] = {0, 256};
-  const float *histRange = {range};
+  auto loader2 = std::make_unique<OpenCVVideoLoader>();
+  if (!loader2->open(otherFilename))
+    return -1.0;
 
-  std::vector<double> distances;
-  for (int i = 0; i < sampleCount; ++i) {
-    cv::Mat f1 = loader1->readFrame();
+  std::vector<cv::Mat> frames1, frames2;
+  for (int i = 0; i < core::kVideoCompareSampleCount; ++i) {
+    cv::Mat f1 = loader_->readFrame();
     cv::Mat f2 = loader2->readFrame();
     if (f1.empty() || f2.empty())
       break;
-
-    cv::Mat g1, g2;
-    if (f1.channels() == 1)
-      g1 = f1;
-    else
-      cv::cvtColor(f1, g1, cv::COLOR_BGR2GRAY);
-    if (f2.channels() == 1)
-      g2 = f2;
-    else
-      cv::cvtColor(f2, g2, cv::COLOR_BGR2GRAY);
-
-    cv::Mat h1, h2;
-    cv::calcHist(&g1, 1, 0, cv::Mat(), h1, 1, &histSize, &histRange);
-    cv::calcHist(&g2, 1, 0, cv::Mat(), h2, 1, &histSize, &histRange);
-    cv::normalize(h1, h1, 1.0, 0.0, cv::NORM_L1);
-    cv::normalize(h2, h2, 1.0, 0.0, cv::NORM_L1);
-
-    double dist = cv::compareHist(h1, h2, cv::HISTCMP_BHATTACHARYYA);
-    distances.push_back(dist);
+    frames1.push_back(f1);
+    frames2.push_back(f2);
   }
 
-  if (distances.empty())
-    return -1.0;
-  double avgDist = std::accumulate(distances.begin(), distances.end(), 0.0) /
-                   distances.size();
-  const double similarity = 1.0 - avgDist;
-  return std::clamp(similarity, 0.0, 1.0);
+  return core::compareVideoHistograms(frames1, frames2,
+                                      core::kVideoCompareSampleCount);
 }
 
 VideoMetrics VideoHandler::getMetrics() {
@@ -646,7 +469,7 @@ ShotLengthStats getVideoShotLengthStats(const std::string &filename,
                                         double threshold) {
   VideoHandler handler(std::make_unique<OpenCVVideoLoader>());
   if (!handler.open(filename))
-    return {0.0, 0.0, 0.0, 0.0, 0};
+    return {-1.0, -1.0, -1.0, -1.0, -1};
   return handler.getShotLengthStats(threshold);
 }
 
@@ -689,10 +512,8 @@ double compareVideos(const std::string &filename1,
 
 VideoMetrics getVideoMetrics(const std::string &filename) {
   VideoHandler handler(std::make_unique<OpenCVVideoLoader>());
-  VideoMetrics m{};
-  m.frame_count = -1;
   if (!handler.open(filename))
-    return m;
+    return VideoMetrics{};
   return handler.getMetrics();
 }
 

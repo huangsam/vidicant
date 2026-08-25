@@ -9,6 +9,7 @@
 #ifndef VIDICANT_IMAGE_HPP
 #define VIDICANT_IMAGE_HPP
 
+#include "vidicant/types.hpp"
 #include <array>
 #include <cstdint>
 #include <memory>
@@ -19,76 +20,6 @@
 #include <vector>
 
 namespace vidicant {
-
-// Struct: TextureFeatures
-// Gray-level co-occurrence matrix (GLCM) derived texture metrics.
-struct TextureFeatures {
-  double contrast;    // Measures local intensity variations.
-  double energy;      // Sum of squared elements (texture uniformity).
-  double homogeneity; // Closeness of the distribution to the GLCM diagonal.
-  double correlation; // Linear dependency of gray-level pairs.
-};
-
-// Struct: BoundingBox
-// 2D bounding box coordinates [x, y, width, height].
-struct BoundingBox {
-  float x{0.0f};
-  float y{0.0f};
-  float width{0.0f};
-  float height{0.0f};
-};
-
-// Struct: DetectedObject
-// An object or face detected by a neural network model.
-struct DetectedObject {
-  BoundingBox box;
-  std::string class_name;
-  float confidence{0.0f};
-};
-
-// Struct: ClassificationLabel
-// A classification label and its predicted probability.
-struct ClassificationLabel {
-  std::string label;
-  float confidence{0.0f};
-  int class_id{-1};
-};
-
-// Struct: ImageMetrics
-// Aggregates all per-image analysis results into a single object.
-struct ImageMetrics {
-  int width;
-  int height;
-  bool is_grayscale;
-  double average_brightness;
-  int channels;
-  int edge_count;
-  std::vector<std::array<double, 3>> dominant_colors;
-  double blur_score;
-  double contrast_ratio;
-  double saturation_level;
-  std::vector<std::vector<int>> histogram;
-  double aspect_ratio;
-  double entropy;
-  double noise_estimate;
-  double symmetry_score;
-  TextureFeatures texture;
-  uint64_t perceptual_hash;
-  double white_balance_score;
-  std::vector<int> hue_histogram;
-  double sharpness_score;
-  std::string noise_type;
-  double aesthetic_score; // Aesthetic score [1.0 - 10.0] via ONNX/DNN (-1.0 if
-                          // not evaluated).
-  double technical_quality_score; // Technical quality score [0.0 - 1.0] (-1.0
-                                  // if not evaluated).
-  bool ml_evaluated;              // True if DNN model inference was executed.
-  std::vector<DetectedObject>
-      detected_objects; // Detected objects with boxes & confidences.
-  std::vector<ClassificationLabel>
-      top_labels;               // Top-K classification labels & confidences.
-  std::vector<float> embedding; // Raw flattened output embedding vector.
-};
 
 // Class: IImageLoader
 // Abstract interface for image loading operations.

@@ -19,15 +19,19 @@ Vidicant is structured across three distinct layers:
                                │ Direct C++ API
 ┌──────────────────────────────▼──────────────────────────────┐
 │                       Core C++ Library                      │
-│             (src/controller.cpp, image.cpp, video.cpp)      │
+│        (src/core/, src/dnn/, src/io/, image.cpp, video.cpp) │
 │                     Linked against OpenCV                   │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ### 1. Core C++ Library (`src/`, `include/`)
+- **`vidicant::types` (`include/vidicant/types.hpp`)**: Core metric and bounding box structs (`ImageMetrics`, `VideoMetrics`, `TextureFeatures`, `BoundingBox`, etc.).
+- **`vidicant::core` (`src/core/`)**: Pure computer vision algorithms (`image_ops.hpp`, `video_ops.hpp`) operating directly on `cv::Mat` frames.
+- **`vidicant::dnn` (`src/dnn/`)**: Neural inference subsystem (`dnn_engine.hpp`) encapsulating OpenCV DNN execution and model task decoding.
+- **`vidicant::io` (`src/io/`)**: Media format detection (`file_detector.hpp`) via extension and magic byte inspection.
 - **`IImageLoader` / `IVideoLoader`**: Abstract interfaces enabling custom media loading strategies.
 - **`OpenCVImageLoader` / `OpenCVVideoLoader`**: Concrete OpenCV-backed implementations.
-- **`ImageHandler` / `VideoHandler`**: High-level analysis classes executing algorithms (color extraction, edge detection, blur metrics, motion analysis).
+- **`ImageHandler` / `VideoHandler`**: High-level coordinators delegating to `core` and `dnn`.
 - **Public API**: Convenience functions under `vidicant::` namespace (`getImageDimensions`, `processImage`, `processVideo`).
 
 ### 2. C-ABI Wrapper Layer (`include/vidicant/c_api.h`, `src/vidicant_c_api.cpp`)

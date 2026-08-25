@@ -12,12 +12,17 @@ const opencv_libs = [_][]const u8{
 
 const header_files = [_][]const u8{
     "include/vidicant/c_api.h",
+    "include/vidicant/types.hpp",
     "include/vidicant/controller.hpp",
     "include/vidicant/image.hpp",
     "include/vidicant/video.hpp",
 };
 
 const lib_sources = [_][]const u8{
+    "src/core/image_ops.cpp",
+    "src/core/video_ops.cpp",
+    "src/dnn/dnn_engine.cpp",
+    "src/io/file_detector.cpp",
     "src/image.cpp",
     "src/video.cpp",
     "src/controller.cpp",
@@ -25,6 +30,10 @@ const lib_sources = [_][]const u8{
 };
 
 const cli_sources = [_][]const u8{
+    "src/core/image_ops.cpp",
+    "src/core/video_ops.cpp",
+    "src/dnn/dnn_engine.cpp",
+    "src/io/file_detector.cpp",
     "src/main.cpp",
     "src/controller.cpp",
     "src/image.cpp",
@@ -70,7 +79,7 @@ pub fn build(b: *std.Build) void {
     // Use host C++ compiler to guarantee ABI compatibility with system OpenCV.
     if (os == .linux) {
         // Build shared library (libvidicant.so)
-        const lib_cmd = b.addSystemCommand(&.{ "c++", "-std=c++17", "-O3", "-fPIC", "-shared", "-Wno-psabi", "-I", "include" });
+        const lib_cmd = b.addSystemCommand(&.{ "c++", "-std=c++17", "-O3", "-fPIC", "-shared", "-Wno-psabi", "-I", "include", "-I", "src" });
         if (opencv_path) |p| {
             lib_cmd.addArgs(&.{ "-I", b.fmt("{s}/include", .{p}), "-L", b.fmt("{s}/lib", .{p}) });
         } else {
@@ -98,7 +107,7 @@ pub fn build(b: *std.Build) void {
         }
 
         // Build CLI executable (vidicant_cli)
-        const exe_cmd = b.addSystemCommand(&.{ "c++", "-std=c++17", "-O3", "-Wno-psabi", "-I", "include" });
+        const exe_cmd = b.addSystemCommand(&.{ "c++", "-std=c++17", "-O3", "-Wno-psabi", "-I", "include", "-I", "src" });
         if (opencv_path) |p| {
             exe_cmd.addArgs(&.{ "-I", b.fmt("{s}/include", .{p}), "-L", b.fmt("{s}/lib", .{p}) });
         } else {
@@ -130,6 +139,7 @@ pub fn build(b: *std.Build) void {
         .flags = &.{ "-std=c++17", "-Wall", "-Wextra" },
     });
     lib_mod.addIncludePath(.{ .cwd_relative = "include" });
+    lib_mod.addIncludePath(.{ .cwd_relative = "src" });
     configureOpenCV(b, lib_mod, target, opencv_path);
     for (opencv_libs) |lib_name| {
         lib_mod.linkSystemLibrary(lib_name, .{});
@@ -160,6 +170,7 @@ pub fn build(b: *std.Build) void {
         .flags = &.{ "-std=c++17", "-Wall", "-Wextra" },
     });
     exe_mod.addIncludePath(.{ .cwd_relative = "include" });
+    exe_mod.addIncludePath(.{ .cwd_relative = "src" });
     configureOpenCV(b, exe_mod, target, opencv_path);
     for (opencv_libs) |lib_name| {
         exe_mod.linkSystemLibrary(lib_name, .{});
