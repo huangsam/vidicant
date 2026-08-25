@@ -10,6 +10,12 @@ const opencv_libs = [_][]const u8{
     "opencv_dnn",
 };
 
+const header_files = [_][]const u8{
+    "include/controller.hpp",
+    "include/vidicant/image.hpp",
+    "include/vidicant/video.hpp",
+};
+
 const lib_sources = [_][]const u8{
     "src/image.cpp",
     "src/video.cpp",
@@ -49,7 +55,15 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
     const opencv_path = b.option([]const u8, "opencv-path", "Custom path to OpenCV installation directory");
+    const install_to_pkg = b.option(bool, "install-to-pkg", "Copy shared library directly into vidicant/ directory for wheel staging") orelse false;
     const os = target.result.os.tag;
+
+    // Test step: Runs the python e2e test suite
+    const test_step = b.step("test", "Run end-to-end test suite");
+    const test_cmd = b.addSystemCommand(&.{ "python3", "e2e.py" });
+    test_cmd.setEnvironmentVariable("PYTHONPATH", ".");
+    test_cmd.step.dependOn(b.getInstallStep());
+    test_step.dependOn(&test_cmd.step);
 
     // Linux: System OpenCV packages use GNU libstdc++ ABI.
     // Use host C++ compiler to guarantee ABI compatibility with system OpenCV.
@@ -60,6 +74,9 @@ pub fn build(b: *std.Build) void {
             lib_cmd.addArgs(&.{ "-I", b.fmt("{s}/include", .{p}), "-L", b.fmt("{s}/lib", .{p}) });
         } else {
             lib_cmd.addArgs(&.{ "-I", "/usr/include/opencv4", "-I", "/usr/include/opencv5", "-I", "/usr/local/include", "-I", "/usr/include" });
+        }
+        for (header_files) |hdr| {
+            lib_cmd.addFileInput(b.path(hdr));
         }
         for (lib_sources) |src| {
             lib_cmd.addFileArg(b.path(src));
@@ -72,12 +89,22 @@ pub fn build(b: *std.Build) void {
         const install_lib = b.addInstallFile(lib_out, "lib/libvidicant.so");
         b.getInstallStep().dependOn(&install_lib.step);
 
+        if (install_to_pkg) {
+            const copy_pkg = b.addSystemCommand(&.{"cp"});
+            copy_pkg.addFileArg(lib_out);
+            copy_pkg.addArg("vidicant/");
+            b.getInstallStep().dependOn(&copy_pkg.step);
+        }
+
         // Build CLI executable (vidicant_cli)
         const exe_cmd = b.addSystemCommand(&.{ "c++", "-std=c++17", "-O3", "-I", "include" });
         if (opencv_path) |p| {
             exe_cmd.addArgs(&.{ "-I", b.fmt("{s}/include", .{p}), "-L", b.fmt("{s}/lib", .{p}) });
         } else {
             exe_cmd.addArgs(&.{ "-I", "/usr/include/opencv4", "-I", "/usr/include/opencv5", "-I", "/usr/local/include", "-I", "/usr/include" });
+        }
+        for (header_files) |hdr| {
+            exe_cmd.addFileInput(b.path(hdr));
         }
         for (cli_sources) |src| {
             exe_cmd.addFileArg(b.path(src));
@@ -115,6 +142,13 @@ pub fn build(b: *std.Build) void {
         .root_module = lib_mod,
     });
     b.installArtifact(lib);
+
+    if (install_to_pkg) {
+        const copy_pkg = b.addSystemCommand(&.{"cp"});
+        copy_pkg.addFileArg(lib.getEmittedBin());
+        copy_pkg.addArg("vidicant/");
+        b.getInstallStep().dependOn(&copy_pkg.step);
+    }
 
     const exe_mod = b.createModule(.{
         .target = target,

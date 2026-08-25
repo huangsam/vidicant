@@ -31,6 +31,8 @@ venv/
 *.pyc
 *.pyo
 *.so
+*.dylib
+*.dll
 *$py.class
 
 # Zig

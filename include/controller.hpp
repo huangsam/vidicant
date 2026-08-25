@@ -24,6 +24,13 @@ nlohmann::json processImage(const std::string &filename,
                             float conf_threshold = 0.5f,
                             float nms_threshold = 0.4f);
 
+// Function to process an in-memory image buffer and return JSON result
+nlohmann::json processImageBytes(const uint8_t *buffer, size_t len,
+                                 const std::string &model_path = "",
+                                 const std::string &task = "quality",
+                                 int top_k = 5, float conf_threshold = 0.5f,
+                                 float nms_threshold = 0.4f);
+
 // Function to process a video file and return JSON result
 nlohmann::json processVideo(const std::string &filename);
 

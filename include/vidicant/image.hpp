@@ -112,6 +112,17 @@ public:
   cv::Mat imread(const std::string &filename) override;
 };
 
+// Class: MemoryImageLoader
+// Concrete implementation of IImageLoader for in-memory images.
+class MemoryImageLoader : public IImageLoader {
+private:
+  cv::Mat image_;
+
+public:
+  explicit MemoryImageLoader(cv::Mat image);
+  cv::Mat imread(const std::string &filename) override;
+};
+
 // Class: ImageHandler
 // High-level handler for image analysis operations.
 //
@@ -303,6 +314,22 @@ ImageMetrics getImageMetrics(const std::string &filename,
                              const std::string &task = "quality", int top_k = 5,
                              float conf_threshold = 0.5f,
                              float nms_threshold = 0.4f);
+
+// Convenience function to get all image metrics from an in-memory decoded
+// image.
+ImageMetrics getImageMetrics(const cv::Mat &mat,
+                             const std::string &model_path = "",
+                             const std::string &task = "quality", int top_k = 5,
+                             float conf_threshold = 0.5f,
+                             float nms_threshold = 0.4f);
+
+// Convenience function to decode an image buffer and retrieve its metrics.
+ImageMetrics getImageMetricsFromBuffer(const uint8_t *buffer, size_t len,
+                                       const std::string &model_path = "",
+                                       const std::string &task = "quality",
+                                       int top_k = 5,
+                                       float conf_threshold = 0.5f,
+                                       float nms_threshold = 0.4f);
 
 // Processes a batch of image files in parallel and returns their metrics.
 std::vector<ImageMetrics>

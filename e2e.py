@@ -6,8 +6,12 @@ to verify that the full media analysis pipeline works correctly.
 
 from __future__ import annotations
 
+import json
 import os
+import shutil
+import subprocess
 import sys
+import tempfile
 
 import vidicant
 
@@ -354,6 +358,211 @@ def test_generic_embeddings():
     print()
 
 
+def test_process_image_bytes():
+    """Test in-memory byte buffer image processing."""
+    print("=" * 60)
+    print("TEST: In-Memory Byte Buffer Processing (process_image_bytes)")
+    print("=" * 60)
+
+    # 1. Read bytes from sample image
+    with open("examples/sample.jpg", "rb") as f:
+        img_bytes = f.read()
+
+    # Verify standard heuristic processing from memory
+    res = vidicant.process_image_bytes(img_bytes)
+    assert isinstance(res, dict)
+    assert res["width"] > 0
+    assert res["height"] > 0
+    assert res["channels"] in [1, 3]
+    assert isinstance(res["blur_score"], (int, float))
+    assert isinstance(res["perceptual_hash"], int)
+    assert isinstance(res["dominant_colors"], list)
+    assert res["ml_evaluated"] is False
+
+    # Compare metrics with file-based processing
+    file_res = vidicant.process_image("examples/sample.jpg")
+    assert res["width"] == file_res["width"]
+    assert res["height"] == file_res["height"]
+    assert res["channels"] == file_res["channels"]
+    assert res["perceptual_hash"] == file_res["perceptual_hash"]
+
+    # 2. Test invalid / empty byte buffer handling
+    try:
+        vidicant.process_image_bytes(b"")
+        raise AssertionError("Should have raised ValueError on empty buffer")
+    except ValueError:
+        pass
+
+    try:
+        vidicant.process_image_bytes(b"invalid_garbage_data_not_an_image")
+        raise AssertionError("Should have raised ValueError on non-image buffer")
+    except ValueError:
+        pass
+
+    # 3. Test DNN neural tasks with in-memory bytes
+    temp_model = "test_fixture_bytes_ml.onnx"
+    try:
+        _generate_test_onnx(temp_model, channels=3)
+        res_quality = vidicant.process_image_bytes(img_bytes, enable_ml=True, model_path=temp_model, task="quality")
+        assert res_quality["ml_evaluated"] is True
+        assert isinstance(res_quality["aesthetic_score"], float)
+
+        res_cls = vidicant.process_image_bytes(img_bytes, enable_ml=True, model_path=temp_model, task="classify", top_k=2)
+        assert res_cls["ml_evaluated"] is True
+        assert len(res_cls["top_labels"]) == 2
+
+        res_det = vidicant.process_image_bytes(img_bytes, enable_ml=True, model_path=temp_model, task="detect")
+        assert res_det["ml_evaluated"] is True
+        assert isinstance(res_det["detected_objects"], list)
+
+        res_emb = vidicant.process_image_bytes(img_bytes, enable_ml=True, model_path=temp_model, task="embed")
+        assert res_emb["ml_evaluated"] is True
+        assert len(res_emb["embedding"]) == 3
+    finally:
+        if os.path.exists(temp_model):
+            os.remove(temp_model)
+
+    print("✓ In-memory byte buffer processing verified")
+    print()
+
+
+def test_cli_streaming_formats():
+    """Test CLI --format jsonl and --format csv streaming output options."""
+    print("=" * 60)
+    print("TEST: CLI Streaming Formats (jsonl & csv)")
+    print("=" * 60)
+
+    cli_bin = "./zig-out/bin/vidicant_cli"
+    if not os.path.isfile(cli_bin):
+        print(f"Skipping CLI test: {cli_bin} not built yet.")
+        return
+
+    # 1. Test JSONL streaming output to file
+    with tempfile.NamedTemporaryFile(suffix=".jsonl", delete=False) as f:
+        jsonl_path = f.name
+
+    try:
+        cmd = [
+            cli_bin,
+            "examples/sample.jpg",
+            "examples/sample.mp4",
+            "--format",
+            "jsonl",
+            "--output",
+            jsonl_path,
+        ]
+        subprocess.run(cmd, capture_output=True, text=True, check=True)
+        assert os.path.exists(jsonl_path)
+        with open(jsonl_path) as f:
+            lines = [line.strip() for line in f if line.strip()]
+        assert len(lines) == 2, f"Expected 2 lines for 2 media files, got {len(lines)}"
+
+        rec0 = json.loads(lines[0])
+        assert rec0["media_type"] == "image"
+        assert "blur_score" in rec0
+
+        rec1 = json.loads(lines[1])
+        assert rec1["media_type"] == "video"
+        assert "motion_score" in rec1
+        print("✓ CLI JSONL streaming output verified")
+    finally:
+        if os.path.exists(jsonl_path):
+            os.remove(jsonl_path)
+
+    # 2. Test CSV streaming output to file
+    with tempfile.NamedTemporaryFile(suffix=".csv", delete=False) as f:
+        csv_path = f.name
+
+    try:
+        cmd = [
+            cli_bin,
+            "examples/sample.jpg",
+            "examples/sample.mp4",
+            "--format",
+            "csv",
+            "--output",
+            csv_path,
+        ]
+        subprocess.run(cmd, capture_output=True, text=True, check=True)
+        assert os.path.exists(csv_path)
+        with open(csv_path) as f:
+            lines = [line.strip() for line in f if line.strip()]
+        assert len(lines) == 3, f"Expected header + 2 data rows, got {len(lines)}"
+        assert lines[0].startswith("filename,media_type,width,height")
+        assert "examples/sample.jpg,image" in lines[1]
+        assert "examples/sample.mp4,video" in lines[2]
+        print("✓ CLI CSV streaming output verified")
+    finally:
+        if os.path.exists(csv_path):
+            os.remove(csv_path)
+
+    print("✓ All CLI streaming formats verified")
+    print()
+
+
+def test_cli_deduplication():
+    """Test CLI dedupe subcommand for near-duplicate image clustering."""
+    print("=" * 60)
+    print("TEST: CLI Near-Duplicate Image Clustering (dedupe)")
+    print("=" * 60)
+
+    cli_bin = "./zig-out/bin/vidicant_cli"
+    if not os.path.isfile(cli_bin):
+        print(f"Skipping CLI test: {cli_bin} not built yet.")
+        return
+
+    temp_dir = tempfile.mkdtemp(prefix="vidicant_dedupe_test_")
+    try:
+        # Create identical copies in temporary test directory
+        img_orig = os.path.join(temp_dir, "img_orig.jpg")
+        img_copy1 = os.path.join(temp_dir, "img_copy1.jpg")
+        img_copy2 = os.path.join(temp_dir, "img_copy2.jpg")
+        shutil.copyfile("examples/sample.jpg", img_orig)
+        shutil.copyfile("examples/sample.jpg", img_copy1)
+        shutil.copyfile("examples/sample.jpg", img_copy2)
+
+        # 1. Test JSON format output
+        with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as f:
+            out_json = f.name
+
+        try:
+            cmd = [
+                cli_bin,
+                "dedupe",
+                temp_dir,
+                "--threshold",
+                "5",
+                "--format",
+                "json",
+                "--output",
+                out_json,
+            ]
+            subprocess.run(cmd, capture_output=True, text=True, check=True)
+            with open(out_json) as f:
+                data = json.load(f)
+            assert data["total_images"] == 3
+            assert data["clusters_count"] == 1
+            assert len(data["duplicate_clusters"]) == 1
+            assert data["duplicate_clusters"][0]["count"] == 3
+            assert len(data["duplicate_clusters"][0]["files"]) == 3
+            print(f"✓ Dedupe JSON output: found cluster with {data['duplicate_clusters'][0]['count']} duplicates")
+        finally:
+            if os.path.exists(out_json):
+                os.remove(out_json)
+
+        # 2. Test text format output to stdout
+        cmd_txt = [cli_bin, "dedupe", temp_dir, "--threshold", "5", "--format", "text"]
+        res_txt = subprocess.run(cmd_txt, capture_output=True, text=True, check=True)
+        assert "Found 1 duplicate/near-duplicate cluster(s)" in res_txt.stdout
+        assert "Cluster #1 (3 files)" in res_txt.stdout
+        print("✓ Dedupe text stdout output verified")
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+    print("✓ CLI near-duplicate clustering verified")
+    print()
+
+
 def test_python_version_compatibility():
     """Test that current environment is Python 3.11+ and version requirements are enforced."""
     print("=" * 60)
@@ -379,10 +588,13 @@ def main():
         test_analyzing_images()
         test_analyzing_videos()
         test_video_motion_detection()
+        test_process_image_bytes()
         test_ml_quality_assessment()
         test_semantic_classification()
         test_object_and_face_detection()
         test_generic_embeddings()
+        test_cli_streaming_formats()
+        test_cli_deduplication()
 
         print("=" * 60)
         print("✓ ALL TESTS PASSED!")

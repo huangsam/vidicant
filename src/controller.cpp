@@ -128,17 +128,13 @@ bool isVideoFile(const std::string &filename) {
   return cap.isOpened() && cap.get(cv::CAP_PROP_FRAME_COUNT) > 0;
 }
 
-// Function to process an image file
-nlohmann::json processImage(const std::string &filename,
-                            const std::string &model_path,
-                            const std::string &task, int top_k,
-                            float conf_threshold, float nms_threshold) {
+static nlohmann::json formatImageMetricsJson(const ImageMetrics &m,
+                                             const std::string &identifier) {
   nlohmann::json result;
-  result["filename"] = filename;
+  if (!identifier.empty()) {
+    result["filename"] = identifier;
+  }
 
-  // Load and analyse the image once via a single ImageHandler.
-  ImageMetrics m = vidicant::getImageMetrics(filename, model_path, task, top_k,
-                                             conf_threshold, nms_threshold);
   if (m.width == -1) {
     result["error"] = "Failed to load image";
     return result;
@@ -212,6 +208,27 @@ nlohmann::json processImage(const std::string &filename,
   }
 
   return result;
+}
+
+// Function to process an image file
+nlohmann::json processImage(const std::string &filename,
+                            const std::string &model_path,
+                            const std::string &task, int top_k,
+                            float conf_threshold, float nms_threshold) {
+  // Load and analyse the image once via a single ImageHandler.
+  ImageMetrics m = vidicant::getImageMetrics(filename, model_path, task, top_k,
+                                             conf_threshold, nms_threshold);
+  return formatImageMetricsJson(m, filename);
+}
+
+// Function to process an in-memory image buffer
+nlohmann::json processImageBytes(const uint8_t *buffer, size_t len,
+                                 const std::string &model_path,
+                                 const std::string &task, int top_k,
+                                 float conf_threshold, float nms_threshold) {
+  ImageMetrics m = vidicant::getImageMetricsFromBuffer(
+      buffer, len, model_path, task, top_k, conf_threshold, nms_threshold);
+  return formatImageMetricsJson(m, "");
 }
 
 // Function to process a video file

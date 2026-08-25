@@ -15,6 +15,7 @@ from .binding import (
     is_image_file,
     is_video_file,
     process_image,
+    process_image_bytes,
     process_video,
 )
 
@@ -25,5 +26,6 @@ __all__ = [
     "is_image_file",
     "is_video_file",
     "process_image",
+    "process_image_bytes",
     "process_video",
 ]

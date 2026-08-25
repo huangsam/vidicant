@@ -69,6 +69,27 @@ const char *vidicant_process_image_dnn(const char *filename,
   }
 }
 
+const char *vidicant_process_image_bytes(const uint8_t *buffer, size_t len,
+                                         const char *model_path,
+                                         const char *task, int top_k,
+                                         float conf_threshold,
+                                         float nms_threshold) {
+  if (!buffer || len == 0)
+    return nullptr;
+  try {
+    std::string mp = model_path ? std::string(model_path) : "";
+    std::string tk = task ? std::string(task) : "quality";
+    nlohmann::json res = processImageBytes(buffer, len, mp, tk, top_k,
+                                           conf_threshold, nms_threshold);
+    std::string s = res.dump();
+    char *out = static_cast<char *>(std::malloc(s.size() + 1));
+    std::memcpy(out, s.c_str(), s.size() + 1);
+    return out;
+  } catch (...) {
+    return nullptr;
+  }
+}
+
 const char *vidicant_process_video(const char *filename) {
   if (!filename)
     return nullptr;

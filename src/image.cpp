@@ -16,6 +16,11 @@ cv::Mat OpenCVImageLoader::imread(const std::string &filename) {
   return cv::imread(filename);
 }
 
+MemoryImageLoader::MemoryImageLoader(cv::Mat image)
+    : image_(std::move(image)) {}
+
+cv::Mat MemoryImageLoader::imread(const std::string &) { return image_; }
+
 cv::Mat ImageHandler::loadCached(const std::string &filename) {
   auto it = cache_.find(filename);
   if (it != cache_.end()) {
@@ -1084,6 +1089,45 @@ ImageMetrics getImageMetrics(const std::string &filename,
   ImageHandler handler(std::move(loader));
   return handler.getMetrics(filename, model_path, task, top_k, conf_threshold,
                             nms_threshold);
+}
+
+ImageMetrics getImageMetrics(const cv::Mat &mat, const std::string &model_path,
+                             const std::string &task, int top_k,
+                             float conf_threshold, float nms_threshold) {
+  if (mat.empty()) {
+    ImageMetrics m{};
+    m.width = -1;
+    m.height = -1;
+    return m;
+  }
+  auto loader = std::make_unique<MemoryImageLoader>(mat);
+  ImageHandler handler(std::move(loader));
+  return handler.getMetrics("", model_path, task, top_k, conf_threshold,
+                            nms_threshold);
+}
+
+ImageMetrics getImageMetricsFromBuffer(const uint8_t *buffer, size_t len,
+                                       const std::string &model_path,
+                                       const std::string &task, int top_k,
+                                       float conf_threshold,
+                                       float nms_threshold) {
+  if (!buffer || len == 0) {
+    ImageMetrics m{};
+    m.width = -1;
+    m.height = -1;
+    return m;
+  }
+  cv::Mat rawData(1, static_cast<int>(len), CV_8UC1,
+                  const_cast<uint8_t *>(buffer));
+  cv::Mat decoded = cv::imdecode(rawData, cv::IMREAD_UNCHANGED);
+  if (decoded.empty()) {
+    ImageMetrics m{};
+    m.width = -1;
+    m.height = -1;
+    return m;
+  }
+  return getImageMetrics(decoded, model_path, task, top_k, conf_threshold,
+                         nms_threshold);
 }
 
 std::vector<ImageMetrics>

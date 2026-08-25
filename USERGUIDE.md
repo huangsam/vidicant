@@ -128,6 +128,20 @@ print(f"Best Thumbnail Frame: #{video['best_thumbnail_frame']}")
 
 ---
 
+#### `process_image_bytes(data, enable_ml=False, task="quality", model_path=None, top_k=5, conf_threshold=0.5, nms_threshold=0.4) -> dict`
+
+Processes in-memory raw image bytes (`bytes`, `bytearray`, or `memoryview`) via `cv::imdecode` without writing temporary files to disk. Ideal for streaming cloud workers (AWS Lambda, Celery, S3 streaming).
+
+```python
+with open("photo.jpg", "rb") as f:
+    raw_data = f.read()
+
+metrics = vidicant.process_image_bytes(raw_data)
+print(f"Decoded: {metrics['width']}x{metrics['height']}, Blur: {metrics['blur_score']:.2f}")
+```
+
+---
+
 ### Video Processing
 
 #### `process_video(filename: str) -> dict`
@@ -177,9 +191,17 @@ local_path = vidicant.ensure_model("https://example.com/model.onnx")
 
 ## Command Line Interface (`vidicant_cli`)
 
+### Batch Media Processing
+
 ```bash
-# Basic image & video processing
+# Basic image & video processing (JSON output)
 ./zig-out/bin/vidicant_cli photo.jpg clip.mp4 -o results.json
+
+# Streaming JSON Lines format (.jsonl)
+./zig-out/bin/vidicant_cli ./dataset/ --format jsonl -o dataset_metrics.jsonl
+
+# Streaming Tabular CSV format (.csv)
+./zig-out/bin/vidicant_cli ./dataset/ --format csv -o dataset_metrics.csv
 
 # Classification with Top-3 labels
 ./zig-out/bin/vidicant_cli photo.jpg --task classify --top-k 3
@@ -189,6 +211,36 @@ local_path = vidicant.ensure_model("https://example.com/model.onnx")
 
 # Custom ONNX model
 ./zig-out/bin/vidicant_cli photo.jpg --model custom_model.onnx --task embed
+```
+
+### Near-Duplicate Image Clustering (`dedupe`)
+
+Cluster images in a directory using Hamming distance on 64-bit `dHash` perceptual hashes:
+
+```bash
+# Human-readable summary
+./zig-out/bin/vidicant_cli dedupe ./photos/ --threshold 5
+
+# JSON output with cluster groupings
+./zig-out/bin/vidicant_cli dedupe ./photos/ --threshold 5 --format json -o duplicates.json
+
+# Streaming CSV cluster mappings
+./zig-out/bin/vidicant_cli dedupe ./photos/ --threshold 5 --format csv -o duplicates.csv
+```
+
+---
+
+## Build System & Testing
+
+```bash
+# Build native shared library & CLI
+zig build
+
+# Stage shared library into vidicant/ for wheel packaging
+zig build -Dinstall-to-pkg
+
+# Run native test suite through Zig
+zig build test
 ```
 
 ---

@@ -19,13 +19,13 @@ This document tracks planned improvements and feature roadmaps for Vidicant, pri
 
 Immediate wins to enhance throughput and unlock cloud microservices with zero disk I/O overhead.
 
-- [ ] **In-Memory Byte Buffer C-ABI (`process_image_bytes`)**
+- [x] **In-Memory Byte Buffer C-ABI (`process_image_bytes`)**
     - Expose `vidicant_process_image_bytes(const uint8_t *buffer, size_t len)` in C-ABI using `cv::imdecode`.
     - Add `vidicant.process_image_bytes(data: bytes)` in Python for streaming cloud workers (AWS Lambda, Celery, S3 streaming) without writing temporary files to `/tmp`.
-- [ ] **Streaming JSON Lines (`.jsonl`) & CSV CLI Output**
+- [x] **Streaming JSON Lines (`.jsonl`) & CSV CLI Output**
     - Add `--format jsonl` and `--format csv` to `vidicant_cli` to stream per-file records line-by-line.
     - Enable direct, memory-efficient ingestion into DuckDB, Polars, Pandas, and data lakes on 100k+ file datasets.
-- [ ] **Near-Duplicate Clustering CLI (`dedupe`)**
+- [x] **Near-Duplicate Clustering CLI (`dedupe`)**
     - Add a dedicated deduplication command (`vidicant_cli dedupe <dir> --threshold <int>`).
     - Cluster near-duplicate images using Hamming distance on 64-bit `dHash` perceptual hashes.
 

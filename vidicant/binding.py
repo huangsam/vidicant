@@ -58,6 +58,17 @@ _lib.vidicant_process_image_dnn.argtypes = [
 ]
 _lib.vidicant_process_image_dnn.restype = ctypes.c_void_p
 
+_lib.vidicant_process_image_bytes.argtypes = [
+    ctypes.c_char_p,
+    ctypes.c_size_t,
+    ctypes.c_char_p,
+    ctypes.c_char_p,
+    ctypes.c_int,
+    ctypes.c_float,
+    ctypes.c_float,
+]
+_lib.vidicant_process_image_bytes.restype = ctypes.c_void_p
+
 _lib.vidicant_process_video.argtypes = [ctypes.c_char_p]
 _lib.vidicant_process_video.restype = ctypes.c_void_p
 
@@ -121,6 +132,60 @@ def process_image(
         _lib.vidicant_free_string(raw_ptr)
 
 
+def process_image_bytes(
+    data: bytes | bytearray | memoryview,
+    enable_ml: bool = False,
+    task: str = "quality",
+    model_path: str | None = None,
+    top_k: int = 5,
+    conf_threshold: float = 0.5,
+    nms_threshold: float = 0.4,
+) -> dict:
+    """Process an in-memory image byte buffer and return analysis metrics as a dictionary.
+
+    Args:
+        data: Raw image bytes (JPEG, PNG, WebP, BMP, etc.).
+        enable_ml: If True, evaluates neural network model via ONNX/DNN.
+        task: Neural task type ("quality", "classify", "detect", "embed", "auto").
+        model_path: Optional custom path to an ONNX model file or URL. If None and
+                    enable_ml is True, uses the cached default model for the task.
+        top_k: Number of top classification labels to retrieve (for task="classify").
+        conf_threshold: Minimum confidence score for detection (for task="detect").
+        nms_threshold: Non-Maximum Suppression IoU threshold (for task="detect").
+    """
+    buf = bytes(data) if not isinstance(data, bytes) else data
+    if not buf:
+        raise ValueError("Image data buffer is empty")
+
+    resolved = None
+    if enable_ml or model_path:
+        resolved = ensure_model(model_path, task=task)
+
+    resolved_bytes = resolved.encode("utf-8") if resolved else None
+    task_bytes = task.encode("utf-8")
+
+    raw_ptr = _lib.vidicant_process_image_bytes(
+        buf,
+        len(buf),
+        resolved_bytes,
+        task_bytes,
+        top_k,
+        conf_threshold,
+        nms_threshold,
+    )
+
+    if not raw_ptr:
+        raise ValueError("Failed to process in-memory image bytes")
+    try:
+        s = ctypes.string_at(raw_ptr).decode("utf-8")
+        res = json.loads(s)
+        if "error" in res:
+            raise ValueError(f"Failed to process in-memory image bytes: {res['error']}")
+        return res
+    finally:
+        _lib.vidicant_free_string(raw_ptr)
+
+
 def process_video(filename: str) -> dict:
     """Process a video file and return analysis metrics as a dictionary."""
     raw_ptr = _lib.vidicant_process_video(filename.encode("utf-8"))
@@ -139,5 +204,6 @@ __all__ = [
     "is_image_file",
     "is_video_file",
     "process_image",
+    "process_image_bytes",
     "process_video",
 ]
