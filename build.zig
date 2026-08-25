@@ -69,7 +69,7 @@ pub fn build(b: *std.Build) void {
     // Use host C++ compiler to guarantee ABI compatibility with system OpenCV.
     if (os == .linux) {
         // Build shared library (libvidicant.so)
-        const lib_cmd = b.addSystemCommand(&.{ "c++", "-std=c++17", "-O3", "-fPIC", "-shared", "-I", "include" });
+        const lib_cmd = b.addSystemCommand(&.{ "c++", "-std=c++17", "-O3", "-fPIC", "-shared", "-Wno-psabi", "-I", "include" });
         if (opencv_path) |p| {
             lib_cmd.addArgs(&.{ "-I", b.fmt("{s}/include", .{p}), "-L", b.fmt("{s}/lib", .{p}) });
         } else {
@@ -97,7 +97,7 @@ pub fn build(b: *std.Build) void {
         }
 
         // Build CLI executable (vidicant_cli)
-        const exe_cmd = b.addSystemCommand(&.{ "c++", "-std=c++17", "-O3", "-I", "include" });
+        const exe_cmd = b.addSystemCommand(&.{ "c++", "-std=c++17", "-O3", "-Wno-psabi", "-I", "include" });
         if (opencv_path) |p| {
             exe_cmd.addArgs(&.{ "-I", b.fmt("{s}/include", .{p}), "-L", b.fmt("{s}/lib", .{p}) });
         } else {
