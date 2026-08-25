@@ -11,15 +11,14 @@
 
 namespace vidicant::io {
 
-bool isImageFile(const std::string &filename) {
+bool isImageFile(const std::filesystem::path &filename) {
   if (!std::filesystem::exists(filename) ||
       std::filesystem::is_directory(filename)) {
     return false;
   }
 
   // 1. Fast extension check
-  std::filesystem::path path(filename);
-  std::string ext = path.extension().string();
+  std::string ext = filename.extension().string();
   std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
   const std::vector<std::string> imageExtensions = {
       ".jpg", ".jpeg", ".png",  ".bmp",  ".tiff", ".tif",
@@ -72,15 +71,14 @@ bool isImageFile(const std::string &filename) {
   return cv::haveImageReader(filename);
 }
 
-bool isVideoFile(const std::string &filename) {
+bool isVideoFile(const std::filesystem::path &filename) {
   if (!std::filesystem::exists(filename) ||
       std::filesystem::is_directory(filename)) {
     return false;
   }
 
   // 1. Fast extension check
-  std::filesystem::path path(filename);
-  std::string ext = path.extension().string();
+  std::string ext = filename.extension().string();
   std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
   const std::vector<std::string> videoExtensions = {
       ".mp4", ".avi",  ".mov", ".mkv", ".wmv",

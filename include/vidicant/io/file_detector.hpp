@@ -4,15 +4,15 @@
 #ifndef VIDICANT_IO_FILE_DETECTOR_HPP
 #define VIDICANT_IO_FILE_DETECTOR_HPP
 
-#include <string>
+#include <filesystem>
 
 namespace vidicant::io {
 
 // Checks whether a given path points to an image file.
-bool isImageFile(const std::string &filename);
+bool isImageFile(const std::filesystem::path &filename);
 
 // Checks whether a given path points to a video file.
-bool isVideoFile(const std::string &filename);
+bool isVideoFile(const std::filesystem::path &filename);
 
 } // namespace vidicant::io
 

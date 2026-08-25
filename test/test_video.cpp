@@ -7,7 +7,7 @@ using namespace vidicant;
 
 class MockVideoLoader : public IVideoLoader {
 public:
-  MOCK_METHOD(bool, open, (const std::string &), (override));
+  MOCK_METHOD(bool, open, (const std::filesystem::path &), (override));
   MOCK_METHOD(int, getFrameCount, (), (override));
   MOCK_METHOD(double, getFPS, (), (override));
   MOCK_METHOD((std::pair<int, int>), getResolution, (), (override));
@@ -16,58 +16,67 @@ public:
 
 TEST(VideoHandlerTest, GetFrameCount) {
   auto mockLoader = std::make_unique<MockVideoLoader>();
-  EXPECT_CALL(*mockLoader, open("test.mp4")).WillOnce(::testing::Return(true));
+  EXPECT_CALL(*mockLoader, open(std::filesystem::path("test.mp4")))
+      .WillOnce(::testing::Return(true));
   EXPECT_CALL(*mockLoader, getFrameCount()).WillOnce(::testing::Return(100));
 
   VideoHandler handler(std::move(mockLoader));
   handler.open("test.mp4");
-  int frameCount = handler.getFrameCount();
+  auto frameCount = handler.getFrameCount();
 
-  EXPECT_EQ(frameCount, 100);
+  ASSERT_TRUE(frameCount.has_value());
+  EXPECT_EQ(*frameCount, 100);
 }
 
 TEST(VideoHandlerTest, GetFPS) {
   auto mockLoader = std::make_unique<MockVideoLoader>();
-  EXPECT_CALL(*mockLoader, open("test.mp4")).WillOnce(::testing::Return(true));
+  EXPECT_CALL(*mockLoader, open(std::filesystem::path("test.mp4")))
+      .WillOnce(::testing::Return(true));
   EXPECT_CALL(*mockLoader, getFPS()).WillOnce(::testing::Return(30.0));
 
   VideoHandler handler(std::move(mockLoader));
   handler.open("test.mp4");
-  double fps = handler.getFPS();
+  auto fps = handler.getFPS();
 
-  EXPECT_EQ(fps, 30.0);
+  ASSERT_TRUE(fps.has_value());
+  EXPECT_EQ(*fps, 30.0);
 }
 
 TEST(VideoHandlerTest, GetResolution) {
   auto mockLoader = std::make_unique<MockVideoLoader>();
-  EXPECT_CALL(*mockLoader, open("test.mp4")).WillOnce(::testing::Return(true));
+  EXPECT_CALL(*mockLoader, open(std::filesystem::path("test.mp4")))
+      .WillOnce(::testing::Return(true));
   EXPECT_CALL(*mockLoader, getResolution())
       .WillOnce(::testing::Return(std::make_pair(1920, 1080)));
 
   VideoHandler handler(std::move(mockLoader));
   handler.open("test.mp4");
-  auto [width, height] = handler.getResolution();
+  auto res = handler.getResolution();
 
-  EXPECT_EQ(width, 1920);
-  EXPECT_EQ(height, 1080);
+  ASSERT_TRUE(res.has_value());
+  EXPECT_EQ(res->first, 1920);
+  EXPECT_EQ(res->second, 1080);
 }
 
 TEST(VideoHandlerTest, GetDuration) {
   auto mockLoader = std::make_unique<MockVideoLoader>();
-  EXPECT_CALL(*mockLoader, open("test.mp4")).WillOnce(::testing::Return(true));
+  EXPECT_CALL(*mockLoader, open(std::filesystem::path("test.mp4")))
+      .WillOnce(::testing::Return(true));
   EXPECT_CALL(*mockLoader, getFrameCount()).WillOnce(::testing::Return(300));
   EXPECT_CALL(*mockLoader, getFPS()).WillOnce(::testing::Return(30.0));
 
   VideoHandler handler(std::move(mockLoader));
   handler.open("test.mp4");
-  double duration = handler.getDuration();
+  auto duration = handler.getDuration();
 
-  EXPECT_EQ(duration, 10.0); // 300 / 30
+  ASSERT_TRUE(duration.has_value());
+  EXPECT_EQ(*duration, 10.0); // 300 / 30
 }
 
 TEST(VideoHandlerTest, OpenFail) {
   auto mockLoader = std::make_unique<MockVideoLoader>();
-  EXPECT_CALL(*mockLoader, open("bad.mp4")).WillOnce(::testing::Return(false));
+  EXPECT_CALL(*mockLoader, open(std::filesystem::path("bad.mp4")))
+      .WillOnce(::testing::Return(false));
 
   VideoHandler handler(std::move(mockLoader));
   bool opened = handler.open("bad.mp4");
@@ -78,7 +87,7 @@ TEST(VideoHandlerTest, OpenFail) {
 TEST(VideoHandlerTest, ExtractFirstFrameWithMock) {
   auto mockLoader = std::make_unique<MockVideoLoader>();
   cv::Mat fakeFrame(100, 200, CV_8UC3, cv::Scalar(10, 20, 30));
-  EXPECT_CALL(*mockLoader, open("mock.mp4"))
+  EXPECT_CALL(*mockLoader, open(std::filesystem::path("mock.mp4")))
       .WillRepeatedly(::testing::Return(true));
   EXPECT_CALL(*mockLoader, readFrame()).WillOnce(::testing::Return(fakeFrame));
 
@@ -97,7 +106,7 @@ TEST(VideoHandlerTest, GetAverageBrightnessWithMock) {
   cv::Mat frame2(10, 10, CV_8UC3, cv::Scalar(200, 200, 200));
   cv::Mat emptyFrame;
 
-  EXPECT_CALL(*mockLoader, open("mock.mp4"))
+  EXPECT_CALL(*mockLoader, open(std::filesystem::path("mock.mp4")))
       .WillRepeatedly(::testing::Return(true));
   EXPECT_CALL(*mockLoader, readFrame())
       .WillOnce(::testing::Return(frame1))
@@ -114,7 +123,7 @@ TEST(VideoHandlerTest, GetAverageBrightnessWithMock) {
 TEST(VideoHandlerTest, IsGrayscaleWithMock) {
   auto mockLoader = std::make_unique<MockVideoLoader>();
   cv::Mat grayFrame(10, 10, CV_8UC1, cv::Scalar(128));
-  EXPECT_CALL(*mockLoader, open("mock.mp4"))
+  EXPECT_CALL(*mockLoader, open(std::filesystem::path("mock.mp4")))
       .WillRepeatedly(::testing::Return(true));
   EXPECT_CALL(*mockLoader, readFrame()).WillOnce(::testing::Return(grayFrame));
 
@@ -125,24 +134,28 @@ TEST(VideoHandlerTest, IsGrayscaleWithMock) {
 
 // Tests using real files for methods that need frame reading
 TEST(VideoGlobalTest, GetVideoFrameCountReal) {
-  int frameCount = vidicant::getVideoFrameCount("examples/sample.mp4");
-  EXPECT_EQ(frameCount, 250);
+  auto frameCount = vidicant::getVideoFrameCount("examples/sample.mp4");
+  ASSERT_TRUE(frameCount.has_value());
+  EXPECT_EQ(*frameCount, 250);
 }
 
 TEST(VideoGlobalTest, GetVideoFPSReal) {
-  double fps = vidicant::getVideoFPS("examples/sample.mp4");
-  EXPECT_EQ(fps, 25.0);
+  auto fps = vidicant::getVideoFPS("examples/sample.mp4");
+  ASSERT_TRUE(fps.has_value());
+  EXPECT_EQ(*fps, 25.0);
 }
 
 TEST(VideoGlobalTest, GetVideoResolutionReal) {
-  auto [width, height] = vidicant::getVideoResolution("examples/sample.mp4");
-  EXPECT_EQ(width, 320);
-  EXPECT_EQ(height, 176);
+  auto res = vidicant::getVideoResolution("examples/sample.mp4");
+  ASSERT_TRUE(res.has_value());
+  EXPECT_EQ(res->first, 320);
+  EXPECT_EQ(res->second, 176);
 }
 
 TEST(VideoGlobalTest, GetVideoDurationReal) {
-  double duration = vidicant::getVideoDuration("examples/sample.mp4");
-  EXPECT_EQ(duration, 10.0);
+  auto duration = vidicant::getVideoDuration("examples/sample.mp4");
+  ASSERT_TRUE(duration.has_value());
+  EXPECT_EQ(*duration, 10.0);
 }
 
 TEST(VideoGlobalTest, ExtractFirstFrameReal) {
@@ -178,7 +191,7 @@ TEST(VideoGlobalTest, GetVideoMotionScoreReal) {
 
 TEST(VideoGlobalTest, GetVideoDominantColorsReal) {
   auto colors = vidicant::getVideoDominantColors("examples/sample.mp4");
-  EXPECT_EQ(colors.size(), 3);
+  EXPECT_EQ(colors.size(), 3U);
   for (const auto &color : colors) {
     EXPECT_GE(color[0], 0.0);
     EXPECT_LE(color[0], 255.0);
@@ -290,7 +303,9 @@ TEST(VideoGlobalTest, CompareVideoWithSelfReal) {
 }
 
 TEST(VideoGlobalTest, GetVideoMetricsReal) {
-  VideoMetrics m = vidicant::getVideoMetrics("examples/sample.mp4");
+  auto mOpt = vidicant::getVideoMetrics("examples/sample.mp4");
+  ASSERT_TRUE(mOpt.has_value());
+  const auto &m = *mOpt;
   EXPECT_GT(m.frame_count, 0);
   EXPECT_GT(m.fps, 0.0);
   EXPECT_GT(m.width, 0);

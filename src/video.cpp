@@ -14,8 +14,8 @@
 
 namespace vidicant {
 
-bool OpenCVVideoLoader::open(const std::string &filename) {
-  cap_.open(filename);
+bool OpenCVVideoLoader::open(const std::filesystem::path &filename) {
+  cap_.open(filename.string());
   return cap_.isOpened();
 }
 
@@ -42,29 +42,46 @@ double OpenCVVideoLoader::getProperty(int propId) { return cap_.get(propId); }
 VideoHandler::VideoHandler(std::unique_ptr<IVideoLoader> loader)
     : loader_(std::move(loader)) {}
 
-bool VideoHandler::open(const std::string &filename) {
+bool VideoHandler::open(const std::filesystem::path &filename) {
   filename_ = filename;
   return loader_ && loader_->open(filename);
 }
 
-int VideoHandler::getFrameCount() {
-  return loader_ ? loader_->getFrameCount() : -1;
-}
-
-double VideoHandler::getFPS() { return loader_ ? loader_->getFPS() : -1.0; }
-
-std::pair<int, int> VideoHandler::getResolution() {
-  return loader_ ? loader_->getResolution() : std::make_pair(-1, -1);
-}
-
-double VideoHandler::getDuration() {
+std::optional<int> VideoHandler::getFrameCount() {
   if (!loader_)
-    return -1.0;
-  int frameCount = loader_->getFrameCount();
+    return std::nullopt;
+  int count = loader_->getFrameCount();
+  if (count < 0)
+    return std::nullopt;
+  return count;
+}
+
+std::optional<double> VideoHandler::getFPS() {
+  if (!loader_)
+    return std::nullopt;
   double fps = loader_->getFPS();
-  if (fps <= 0.0)
-    return -1.0;
-  return static_cast<double>(frameCount) / fps;
+  if (fps < 0.0)
+    return std::nullopt;
+  return fps;
+}
+
+std::optional<std::pair<int, int>> VideoHandler::getResolution() {
+  if (!loader_)
+    return std::nullopt;
+  auto res = loader_->getResolution();
+  if (res.first < 0 || res.second < 0)
+    return std::nullopt;
+  return res;
+}
+
+std::optional<double> VideoHandler::getDuration() {
+  if (!loader_)
+    return std::nullopt;
+  auto countOpt = getFrameCount();
+  auto fpsOpt = getFPS();
+  if (!countOpt.has_value() || !fpsOpt.has_value() || *fpsOpt <= 0.0)
+    return std::nullopt;
+  return static_cast<double>(*countOpt) / *fpsOpt;
 }
 
 cv::Mat VideoHandler::extractFirstFrame() {
@@ -98,11 +115,12 @@ bool VideoHandler::isGrayscale() {
   return !frame.empty() && frame.channels() == 1;
 }
 
-bool VideoHandler::saveFirstFrameAsImage(const std::string &imagePath) {
+bool VideoHandler::saveFirstFrameAsImage(
+    const std::filesystem::path &imagePath) {
   cv::Mat frame = extractFirstFrame();
   if (frame.empty())
     return false;
-  return cv::imwrite(imagePath, frame);
+  return cv::imwrite(imagePath.string(), frame);
 }
 
 double VideoHandler::getMotionScore() {
@@ -189,8 +207,8 @@ std::vector<int> VideoHandler::detectSceneChanges(double threshold) {
 }
 
 double VideoHandler::getFrameRateStability() {
-  double fps = getFPS();
-  if (fps <= 0.0)
+  auto fps = getFPS();
+  if (!fps.has_value() || *fps <= 0.0)
     return -1.0;
   return 0.0; // Simplified placeholder
 }
@@ -239,7 +257,7 @@ bool VideoHandler::hasAudioTrack() {
 
 ShotLengthStats VideoHandler::getShotLengthStats(double threshold) {
   std::vector<int> changes = detectSceneChanges(threshold);
-  int totalFrames = getFrameCount();
+  int totalFrames = getFrameCount().value_or(0);
   return core::calculateShotLengthStats(changes, totalFrames);
 }
 
@@ -307,7 +325,7 @@ std::string VideoHandler::getCodecFourcc() {
   return core::decodeFourcc(fourccCode);
 }
 
-double VideoHandler::compareVideos(const std::string &otherFilename) {
+double VideoHandler::compareVideos(const std::filesystem::path &otherFilename) {
   if (!loader_ || (!filename_.empty() && !loader_->open(filename_)))
     return -1.0;
 
@@ -329,14 +347,20 @@ double VideoHandler::compareVideos(const std::string &otherFilename) {
                                       core::kVideoCompareSampleCount);
 }
 
-VideoMetrics VideoHandler::getMetrics() {
+std::optional<VideoMetrics> VideoHandler::getMetrics() {
+  auto frameCountOpt = getFrameCount();
+  if (!frameCountOpt.has_value() || *frameCountOpt <= 0)
+    return std::nullopt;
+
   VideoMetrics m{};
-  m.frame_count = getFrameCount();
-  m.fps = getFPS();
-  auto [w, h] = getResolution();
-  m.width = w;
-  m.height = h;
-  m.duration = getDuration();
+  m.frame_count = *frameCountOpt;
+  m.fps = getFPS().value_or(0.0);
+  auto res = getResolution();
+  if (res.has_value()) {
+    m.width = res->first;
+    m.height = res->second;
+  }
+  m.duration = getDuration().value_or(0.0);
   m.is_grayscale = isGrayscale();
   m.average_brightness = getAverageBrightness();
   if (!m.is_grayscale) {
@@ -357,64 +381,65 @@ VideoMetrics VideoHandler::getMetrics() {
   return m;
 }
 
-int getVideoFrameCount(const std::string &filename) {
+std::optional<int> getVideoFrameCount(const std::filesystem::path &filename) {
   VideoHandler handler(std::make_unique<OpenCVVideoLoader>());
   if (!handler.open(filename))
-    return -1;
+    return std::nullopt;
   return handler.getFrameCount();
 }
 
-double getVideoFPS(const std::string &filename) {
+std::optional<double> getVideoFPS(const std::filesystem::path &filename) {
   VideoHandler handler(std::make_unique<OpenCVVideoLoader>());
   if (!handler.open(filename))
-    return -1.0;
+    return std::nullopt;
   return handler.getFPS();
 }
 
-std::pair<int, int> getVideoResolution(const std::string &filename) {
+std::optional<std::pair<int, int>>
+getVideoResolution(const std::filesystem::path &filename) {
   VideoHandler handler(std::make_unique<OpenCVVideoLoader>());
   if (!handler.open(filename))
-    return {-1, -1};
+    return std::nullopt;
   return handler.getResolution();
 }
 
-double getVideoDuration(const std::string &filename) {
+std::optional<double> getVideoDuration(const std::filesystem::path &filename) {
   VideoHandler handler(std::make_unique<OpenCVVideoLoader>());
   if (!handler.open(filename))
-    return -1.0;
+    return std::nullopt;
   return handler.getDuration();
 }
 
-cv::Mat extractFirstFrame(const std::string &filename) {
+cv::Mat extractFirstFrame(const std::filesystem::path &filename) {
   VideoHandler handler(std::make_unique<OpenCVVideoLoader>());
   if (!handler.open(filename))
     return cv::Mat();
   return handler.extractFirstFrame();
 }
 
-double getVideoAverageBrightness(const std::string &filename) {
+double getVideoAverageBrightness(const std::filesystem::path &filename) {
   VideoHandler handler(std::make_unique<OpenCVVideoLoader>());
   if (!handler.open(filename))
     return -1.0;
   return handler.getAverageBrightness();
 }
 
-bool isVideoGrayscale(const std::string &filename) {
+bool isVideoGrayscale(const std::filesystem::path &filename) {
   VideoHandler handler(std::make_unique<OpenCVVideoLoader>());
   if (!handler.open(filename))
     return false;
   return handler.isGrayscale();
 }
 
-bool saveFirstFrameAsImage(const std::string &videoPath,
-                           const std::string &imagePath) {
+bool saveFirstFrameAsImage(const std::filesystem::path &videoPath,
+                           const std::filesystem::path &imagePath) {
   VideoHandler handler(std::make_unique<OpenCVVideoLoader>());
   if (!handler.open(videoPath))
     return false;
   return handler.saveFirstFrameAsImage(imagePath);
 }
 
-double getVideoMotionScore(const std::string &filename) {
+double getVideoMotionScore(const std::filesystem::path &filename) {
   VideoHandler handler(std::make_unique<OpenCVVideoLoader>());
   if (!handler.open(filename))
     return -1.0;
@@ -422,14 +447,14 @@ double getVideoMotionScore(const std::string &filename) {
 }
 
 std::vector<std::array<double, 3>>
-getVideoDominantColors(const std::string &filename) {
+getVideoDominantColors(const std::filesystem::path &filename) {
   VideoHandler handler(std::make_unique<OpenCVVideoLoader>());
   if (!handler.open(filename))
     return {};
   return handler.getDominantColors();
 }
 
-std::vector<int> detectVideoSceneChanges(const std::string &filename,
+std::vector<int> detectVideoSceneChanges(const std::filesystem::path &filename,
                                          double threshold) {
   VideoHandler handler(std::make_unique<OpenCVVideoLoader>());
   if (!handler.open(filename))
@@ -437,35 +462,35 @@ std::vector<int> detectVideoSceneChanges(const std::string &filename,
   return handler.detectSceneChanges(threshold);
 }
 
-double getVideoFrameRateStability(const std::string &filename) {
+double getVideoFrameRateStability(const std::filesystem::path &filename) {
   VideoHandler handler(std::make_unique<OpenCVVideoLoader>());
   if (!handler.open(filename))
     return -1.0;
   return handler.getFrameRateStability();
 }
 
-double getVideoColorConsistency(const std::string &filename) {
+double getVideoColorConsistency(const std::filesystem::path &filename) {
   VideoHandler handler(std::make_unique<OpenCVVideoLoader>());
   if (!handler.open(filename))
     return -1.0;
   return handler.getColorConsistency();
 }
 
-double getVideoOpticalFlowMagnitude(const std::string &filename) {
+double getVideoOpticalFlowMagnitude(const std::filesystem::path &filename) {
   VideoHandler handler(std::make_unique<OpenCVVideoLoader>());
   if (!handler.open(filename))
     return -1.0;
   return handler.getOpticalFlowMagnitude();
 }
 
-bool videoHasAudioTrack(const std::string &filename) {
+bool videoHasAudioTrack(const std::filesystem::path &filename) {
   VideoHandler handler(std::make_unique<OpenCVVideoLoader>());
   if (!handler.open(filename))
     return false;
   return handler.hasAudioTrack();
 }
 
-ShotLengthStats getVideoShotLengthStats(const std::string &filename,
+ShotLengthStats getVideoShotLengthStats(const std::filesystem::path &filename,
                                         double threshold) {
   VideoHandler handler(std::make_unique<OpenCVVideoLoader>());
   if (!handler.open(filename))
@@ -473,14 +498,14 @@ ShotLengthStats getVideoShotLengthStats(const std::string &filename,
   return handler.getShotLengthStats(threshold);
 }
 
-double getVideoFlickerScore(const std::string &filename) {
+double getVideoFlickerScore(const std::filesystem::path &filename) {
   VideoHandler handler(std::make_unique<OpenCVVideoLoader>());
   if (!handler.open(filename))
     return -1.0;
   return handler.getFlickerScore();
 }
 
-int getVideoBestThumbnailIndex(const std::string &filename) {
+int getVideoBestThumbnailIndex(const std::filesystem::path &filename) {
   VideoHandler handler(std::make_unique<OpenCVVideoLoader>());
   if (!handler.open(filename))
     return -1;
@@ -488,32 +513,33 @@ int getVideoBestThumbnailIndex(const std::string &filename) {
 }
 
 std::vector<double>
-getVideoTemporalBrightnessCurve(const std::string &filename) {
+getVideoTemporalBrightnessCurve(const std::filesystem::path &filename) {
   VideoHandler handler(std::make_unique<OpenCVVideoLoader>());
   if (!handler.open(filename))
     return {};
   return handler.getTemporalBrightnessCurve();
 }
 
-std::string getVideoCodecFourcc(const std::string &filename) {
+std::string getVideoCodecFourcc(const std::filesystem::path &filename) {
   VideoHandler handler(std::make_unique<OpenCVVideoLoader>());
   if (!handler.open(filename))
     return "";
   return handler.getCodecFourcc();
 }
 
-double compareVideos(const std::string &filename1,
-                     const std::string &filename2) {
+double compareVideos(const std::filesystem::path &filename1,
+                     const std::filesystem::path &filename2) {
   VideoHandler handler(std::make_unique<OpenCVVideoLoader>());
   if (!handler.open(filename1))
     return -1.0;
   return handler.compareVideos(filename2);
 }
 
-VideoMetrics getVideoMetrics(const std::string &filename) {
+std::optional<VideoMetrics>
+getVideoMetrics(const std::filesystem::path &filename) {
   VideoHandler handler(std::make_unique<OpenCVVideoLoader>());
   if (!handler.open(filename))
-    return VideoMetrics{};
+    return std::nullopt;
   return handler.getMetrics();
 }
 

@@ -12,8 +12,10 @@
 #include "vidicant/types.hpp"
 #include <array>
 #include <cstdint>
+#include <filesystem>
 #include <memory>
 #include <opencv2/core.hpp>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -29,7 +31,7 @@ namespace vidicant {
 class IImageLoader {
 public:
   // Loads an image from the specified file.
-  virtual cv::Mat imread(const std::string &filename) = 0;
+  virtual cv::Mat imread(const std::filesystem::path &filename) = 0;
 
   // Virtual destructor for proper cleanup of derived classes.
   virtual ~IImageLoader() = default;
@@ -42,7 +44,7 @@ public:
 class OpenCVImageLoader : public IImageLoader {
 public:
   // Loads an image using OpenCV's imread function.
-  cv::Mat imread(const std::string &filename) override;
+  cv::Mat imread(const std::filesystem::path &filename) override;
 };
 
 // Class: MemoryImageLoader
@@ -53,7 +55,7 @@ private:
 
 public:
   explicit MemoryImageLoader(cv::Mat image);
-  cv::Mat imread(const std::string &filename) override;
+  cv::Mat imread(const std::filesystem::path &filename) override;
 };
 
 // Class: ImageHandler
@@ -70,99 +72,105 @@ private:
   std::unordered_map<std::string, cv::Mat> cache_; // Per-instance image cache.
 
   // Loads an image via the loader and caches the result for reuse.
-  cv::Mat loadCached(const std::string &filename);
+  cv::Mat loadCached(const std::filesystem::path &filename);
 
 public:
   // Constructs an ImageHandler with the specified loader.
   explicit ImageHandler(std::unique_ptr<IImageLoader> loader);
 
-  // Retrieves the dimensions of the image.
-  std::pair<int, int> getDimensions(const std::string &filename);
+  // Retrieves the dimensions of the image. Returns nullopt on load failure.
+  std::optional<std::pair<int, int>>
+  getDimensions(const std::filesystem::path &filename);
 
   // Checks if the image is grayscale.
-  bool isGrayscale(const std::string &filename);
+  bool isGrayscale(const std::filesystem::path &filename);
 
   // Calculates the average brightness of the image.
-  double getAverageBrightness(const std::string &filename);
+  double getAverageBrightness(const std::filesystem::path &filename);
 
-  // Gets the number of color channels in the image.
-  int getNumberOfChannels(const std::string &filename);
+  // Gets the number of color channels in the image. Returns nullopt on load
+  // failure.
+  std::optional<int> getNumberOfChannels(const std::filesystem::path &filename);
 
   // Counts the number of edges in the image using Canny edge detection.
-  int getEdgeCount(const std::string &filename);
+  int getEdgeCount(const std::filesystem::path &filename);
 
   // Extracts the dominant colors from the image using k-means clustering.
   std::vector<std::array<double, 3>>
-  getDominantColors(const std::string &filename, int k = 3);
+  getDominantColors(const std::filesystem::path &filename, int k = 3);
 
   // Calculates a blur score for the image using Laplacian variance.
-  double getBlurScore(const std::string &filename);
+  double getBlurScore(const std::filesystem::path &filename);
 
   // Calculates the contrast ratio of the image.
-  double getContrastRatio(const std::string &filename);
+  double getContrastRatio(const std::filesystem::path &filename);
 
   // Calculates the average saturation of the image.
-  double getSaturationLevel(const std::string &filename);
+  double getSaturationLevel(const std::filesystem::path &filename);
 
   // Gets the RGB histogram data for the image.
-  std::vector<std::vector<int>> getHistogram(const std::string &filename);
+  std::vector<std::vector<int>>
+  getHistogram(const std::filesystem::path &filename);
 
   // Calculates the aspect ratio (width/height) of the image.
-  double getAspectRatio(const std::string &filename);
+  double getAspectRatio(const std::filesystem::path &filename);
 
   // Calculates the entropy (information content) of the image.
-  double getImageEntropy(const std::string &filename);
+  double getImageEntropy(const std::filesystem::path &filename);
 
   // Estimates noise level using the Immerkær Laplacian-based formula.
-  double getNoiseEstimate(const std::string &filename);
+  double getNoiseEstimate(const std::filesystem::path &filename);
 
   // Measures bilateral symmetry via histogram correlation of image halves.
-  double getSymmetryScore(const std::string &filename);
+  double getSymmetryScore(const std::filesystem::path &filename);
 
   // Computes GLCM-based texture features (contrast, energy, homogeneity,
   // correlation).
-  TextureFeatures getTextureFeatures(const std::string &filename);
+  TextureFeatures getTextureFeatures(const std::filesystem::path &filename);
 
   // Computes a 64-bit difference hash (dHash) for near-duplicate detection.
-  uint64_t getPerceptualHash(const std::string &filename);
+  uint64_t getPerceptualHash(const std::filesystem::path &filename);
 
   // Estimates white balance quality: returns max channel deviation from the
   // scene mean (0 = perfect balance, higher = stronger color cast).
-  double getWhiteBalanceScore(const std::string &filename);
+  double getWhiteBalanceScore(const std::filesystem::path &filename);
 
   // Returns a 36-bin hue histogram (5-degree bins over the HSV hue channel).
-  std::vector<int> getHueHistogram(const std::string &filename);
+  std::vector<int> getHueHistogram(const std::filesystem::path &filename);
 
   // Calculates mean Sobel gradient magnitude as a sharpness measure.
-  double getSharpnessScore(const std::string &filename);
+  double getSharpnessScore(const std::filesystem::path &filename);
 
   // Computes the Structural Similarity Index (SSIM) between two images.
   // Returns a value in [-1, 1] where 1 means identical.
-  double compareImages(const std::string &filename1,
-                       const std::string &filename2);
+  double compareImages(const std::filesystem::path &filename1,
+                       const std::filesystem::path &filename2);
 
   // Classifies the dominant noise type as "gaussian" or "salt_and_pepper".
-  std::string getNoiseType(const std::string &filename);
+  std::string getNoiseType(const std::filesystem::path &filename);
 
   // Evaluates aesthetic and technical quality using an ONNX model via OpenCV
   // DNN. Returns pair of {aesthetic_score (1.0-10.0), technical_quality_score
   // (0.0-1.0)}.
-  std::pair<double, double> assessQualityDNN(const std::string &filename,
-                                             const std::string &model_path);
+  std::pair<double, double>
+  assessQualityDNN(const std::filesystem::path &filename,
+                   const std::filesystem::path &model_path);
 
   // Runs DNN inference for a specified task ("quality", "classify", "detect",
   // "embed", "auto") and populates neural fields in ImageMetrics.
-  void runDNNInference(const std::string &filename,
-                       const std::string &model_path, ImageMetrics &metrics,
+  void runDNNInference(const std::filesystem::path &filename,
+                       const std::filesystem::path &model_path,
+                       ImageMetrics &metrics,
                        const std::string &task = "quality", int top_k = 5,
                        float conf_threshold = 0.5f, float nms_threshold = 0.4f);
 
   // Returns an ImageMetrics struct populated with all analyses for the file.
-  ImageMetrics getMetrics(const std::string &filename,
-                          const std::string &model_path = "",
-                          const std::string &task = "quality", int top_k = 5,
-                          float conf_threshold = 0.5f,
-                          float nms_threshold = 0.4f);
+  // Returns nullopt on load failure.
+  std::optional<ImageMetrics>
+  getMetrics(const std::filesystem::path &filename,
+             const std::filesystem::path &model_path = "",
+             const std::string &task = "quality", int top_k = 5,
+             float conf_threshold = 0.5f, float nms_threshold = 0.4f);
 };
 
 // Convenience functions for image analysis.
@@ -170,102 +178,107 @@ public:
 // These standalone functions mirror the ImageHandler methods, allowing for
 // direct use without manually constructing handler objects.
 
-// Convenience function to get image dimensions.
-std::pair<int, int> getImageDimensions(const std::string &filename);
+// Convenience function to get image dimensions. Returns nullopt on failure.
+std::optional<std::pair<int, int>>
+getImageDimensions(const std::filesystem::path &filename);
 
 // Convenience function to check if image is grayscale.
-bool isImageGrayscale(const std::string &filename);
+bool isImageGrayscale(const std::filesystem::path &filename);
 
 // Convenience function to get average brightness.
-double getImageAverageBrightness(const std::string &filename);
+double getImageAverageBrightness(const std::filesystem::path &filename);
 
-// Convenience function to get number of channels.
-int getImageNumberOfChannels(const std::string &filename);
+// Convenience function to get number of channels. Returns nullopt on failure.
+std::optional<int>
+getImageNumberOfChannels(const std::filesystem::path &filename);
 
 // Convenience function to get edge count.
-int getImageEdgeCount(const std::string &filename);
+int getImageEdgeCount(const std::filesystem::path &filename);
 
 // Convenience function to get dominant colors.
 std::vector<std::array<double, 3>>
-getImageDominantColors(const std::string &filename, int k = 3);
+getImageDominantColors(const std::filesystem::path &filename, int k = 3);
 
 // Convenience function to get blur score.
-double getImageBlurScore(const std::string &filename);
+double getImageBlurScore(const std::filesystem::path &filename);
 
 // Convenience function to get contrast ratio.
-double getImageContrastRatio(const std::string &filename);
+double getImageContrastRatio(const std::filesystem::path &filename);
 
 // Convenience function to get saturation level.
-double getImageSaturationLevel(const std::string &filename);
+double getImageSaturationLevel(const std::filesystem::path &filename);
 
 // Convenience function to get histogram.
-std::vector<std::vector<int>> getImageHistogram(const std::string &filename);
+std::vector<std::vector<int>>
+getImageHistogram(const std::filesystem::path &filename);
 
 // Convenience function to get aspect ratio.
-double getImageAspectRatio(const std::string &filename);
+double getImageAspectRatio(const std::filesystem::path &filename);
 
 // Convenience function to get image entropy.
-double getImageEntropy(const std::string &filename);
+double getImageEntropy(const std::filesystem::path &filename);
 
 // Convenience function to get noise estimate.
-double getImageNoiseEstimate(const std::string &filename);
+double getImageNoiseEstimate(const std::filesystem::path &filename);
 
 // Convenience function to get symmetry score.
-double getImageSymmetryScore(const std::string &filename);
+double getImageSymmetryScore(const std::filesystem::path &filename);
 
 // Convenience function to get GLCM texture features.
-TextureFeatures getImageTextureFeatures(const std::string &filename);
+TextureFeatures getImageTextureFeatures(const std::filesystem::path &filename);
 
 // Convenience function to get perceptual hash.
-uint64_t getImagePerceptualHash(const std::string &filename);
+uint64_t getImagePerceptualHash(const std::filesystem::path &filename);
 
 // Convenience function to get white balance score.
-double getImageWhiteBalanceScore(const std::string &filename);
+double getImageWhiteBalanceScore(const std::filesystem::path &filename);
 
 // Convenience function to get hue histogram.
-std::vector<int> getImageHueHistogram(const std::string &filename);
+std::vector<int> getImageHueHistogram(const std::filesystem::path &filename);
 
 // Convenience function to get sharpness score.
-double getImageSharpnessScore(const std::string &filename);
+double getImageSharpnessScore(const std::filesystem::path &filename);
 
 // Convenience function to compare two images via SSIM.
-double compareImages(const std::string &filename1,
-                     const std::string &filename2);
+double compareImages(const std::filesystem::path &filename1,
+                     const std::filesystem::path &filename2);
 
 // Convenience function to classify noise type.
-std::string getImageNoiseType(const std::string &filename);
+std::string getImageNoiseType(const std::filesystem::path &filename);
 
 // Convenience function to assess aesthetic & technical quality via ONNX model.
-std::pair<double, double> assessImageQualityDNN(const std::string &filename,
-                                                const std::string &model_path);
+std::pair<double, double>
+assessImageQualityDNN(const std::filesystem::path &filename,
+                      const std::filesystem::path &model_path);
 
-// Convenience function to get all image metrics at once.
-ImageMetrics getImageMetrics(const std::string &filename,
-                             const std::string &model_path = "",
-                             const std::string &task = "quality", int top_k = 5,
-                             float conf_threshold = 0.5f,
-                             float nms_threshold = 0.4f);
+// Convenience function to get all image metrics at once. Returns nullopt on
+// load failure.
+std::optional<ImageMetrics>
+getImageMetrics(const std::filesystem::path &filename,
+                const std::filesystem::path &model_path = "",
+                const std::string &task = "quality", int top_k = 5,
+                float conf_threshold = 0.5f, float nms_threshold = 0.4f);
 
 // Convenience function to get all image metrics from an in-memory decoded
 // image.
 ImageMetrics getImageMetrics(const cv::Mat &mat,
-                             const std::string &model_path = "",
+                             const std::filesystem::path &model_path = "",
                              const std::string &task = "quality", int top_k = 5,
                              float conf_threshold = 0.5f,
                              float nms_threshold = 0.4f);
 
 // Convenience function to decode an image buffer and retrieve its metrics.
-ImageMetrics getImageMetricsFromBuffer(const uint8_t *buffer, size_t len,
-                                       const std::string &model_path = "",
-                                       const std::string &task = "quality",
-                                       int top_k = 5,
-                                       float conf_threshold = 0.5f,
-                                       float nms_threshold = 0.4f);
+ImageMetrics
+getImageMetricsFromBuffer(const uint8_t *buffer, size_t len,
+                          const std::filesystem::path &model_path = "",
+                          const std::string &task = "quality", int top_k = 5,
+                          float conf_threshold = 0.5f,
+                          float nms_threshold = 0.4f);
 
 // Processes a batch of image files in parallel and returns their metrics.
 std::vector<ImageMetrics>
-getBatchImageMetrics(const std::vector<std::string> &filenames,
-                     const std::string &model_path = "",
+getBatchImageMetrics(const std::vector<std::filesystem::path> &filenames,
+                     const std::filesystem::path &model_path = "",
                      const std::string &task = "quality", int top_k = 5,
                      float conf_threshold = 0.5f, float nms_threshold = 0.4f);
 

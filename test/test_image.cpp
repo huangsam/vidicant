@@ -7,40 +7,40 @@ using namespace vidicant;
 
 class MockImageLoader : public IImageLoader {
 public:
-  MOCK_METHOD(cv::Mat, imread, (const std::string &), (override));
+  MOCK_METHOD(cv::Mat, imread, (const std::filesystem::path &), (override));
 };
 
 TEST(ImageHandlerTest, GetDimensionsSuccess) {
   auto mockLoader = std::make_unique<MockImageLoader>();
   cv::Mat fakeImage(100, 200, CV_8UC3,
                     cv::Scalar(0, 0, 0)); // height 100, width 200
-  EXPECT_CALL(*mockLoader, imread("test.jpg"))
+  EXPECT_CALL(*mockLoader, imread(std::filesystem::path("test.jpg")))
       .WillOnce(::testing::Return(fakeImage));
 
   ImageHandler handler(std::move(mockLoader));
-  auto [width, height] = handler.getDimensions("test.jpg");
+  auto dims = handler.getDimensions("test.jpg");
 
-  EXPECT_EQ(width, 200);
-  EXPECT_EQ(height, 100);
+  ASSERT_TRUE(dims.has_value());
+  EXPECT_EQ(dims->first, 200);
+  EXPECT_EQ(dims->second, 100);
 }
 
 TEST(ImageHandlerTest, GetDimensionsFail) {
   auto mockLoader = std::make_unique<MockImageLoader>();
   cv::Mat emptyImage;
-  EXPECT_CALL(*mockLoader, imread("bad.jpg"))
+  EXPECT_CALL(*mockLoader, imread(std::filesystem::path("bad.jpg")))
       .WillOnce(::testing::Return(emptyImage));
 
   ImageHandler handler(std::move(mockLoader));
-  auto [width, height] = handler.getDimensions("bad.jpg");
+  auto dims = handler.getDimensions("bad.jpg");
 
-  EXPECT_EQ(width, -1);
-  EXPECT_EQ(height, -1);
+  EXPECT_FALSE(dims.has_value());
 }
 
 TEST(ImageHandlerTest, IsGrayscaleTrue) {
   auto mockLoader = std::make_unique<MockImageLoader>();
   cv::Mat grayImage(10, 10, CV_8UC1, cv::Scalar(128));
-  EXPECT_CALL(*mockLoader, imread("gray.jpg"))
+  EXPECT_CALL(*mockLoader, imread(std::filesystem::path("gray.jpg")))
       .WillOnce(::testing::Return(grayImage));
 
   ImageHandler handler(std::move(mockLoader));
@@ -52,7 +52,7 @@ TEST(ImageHandlerTest, IsGrayscaleTrue) {
 TEST(ImageHandlerTest, IsGrayscaleFalse) {
   auto mockLoader = std::make_unique<MockImageLoader>();
   cv::Mat colorImage(10, 10, CV_8UC3, cv::Scalar(128, 128, 128));
-  EXPECT_CALL(*mockLoader, imread("color.jpg"))
+  EXPECT_CALL(*mockLoader, imread(std::filesystem::path("color.jpg")))
       .WillOnce(::testing::Return(colorImage));
 
   ImageHandler handler(std::move(mockLoader));
@@ -64,7 +64,7 @@ TEST(ImageHandlerTest, IsGrayscaleFalse) {
 TEST(ImageHandlerTest, GetAverageBrightness) {
   auto mockLoader = std::make_unique<MockImageLoader>();
   cv::Mat image(2, 2, CV_8UC3, cv::Scalar(100, 150, 200));
-  EXPECT_CALL(*mockLoader, imread("bright.jpg"))
+  EXPECT_CALL(*mockLoader, imread(std::filesystem::path("bright.jpg")))
       .WillOnce(::testing::Return(image));
 
   ImageHandler handler(std::move(mockLoader));
@@ -76,13 +76,14 @@ TEST(ImageHandlerTest, GetAverageBrightness) {
 TEST(ImageHandlerTest, GetNumberOfChannels) {
   auto mockLoader = std::make_unique<MockImageLoader>();
   cv::Mat image(10, 10, CV_8UC3);
-  EXPECT_CALL(*mockLoader, imread("channels.jpg"))
+  EXPECT_CALL(*mockLoader, imread(std::filesystem::path("channels.jpg")))
       .WillOnce(::testing::Return(image));
 
   ImageHandler handler(std::move(mockLoader));
-  int channels = handler.getNumberOfChannels("channels.jpg");
+  auto channels = handler.getNumberOfChannels("channels.jpg");
 
-  EXPECT_EQ(channels, 3);
+  ASSERT_TRUE(channels.has_value());
+  EXPECT_EQ(*channels, 3);
 }
 
 TEST(ImageHandlerTest, GetEdgeCount) {
@@ -90,7 +91,7 @@ TEST(ImageHandlerTest, GetEdgeCount) {
   cv::Mat image(10, 10, CV_8UC1, cv::Scalar(0));
   // Add some edges by setting some pixels to 255
   image.at<uchar>(5, 5) = 255;
-  EXPECT_CALL(*mockLoader, imread("edges.jpg"))
+  EXPECT_CALL(*mockLoader, imread(std::filesystem::path("edges.jpg")))
       .WillOnce(::testing::Return(image));
 
   ImageHandler handler(std::move(mockLoader));
@@ -102,13 +103,13 @@ TEST(ImageHandlerTest, GetEdgeCount) {
 TEST(ImageHandlerTest, GetDominantColors) {
   auto mockLoader = std::make_unique<MockImageLoader>();
   cv::Mat image(10, 10, CV_8UC3, cv::Scalar(255, 0, 0)); // Red image
-  EXPECT_CALL(*mockLoader, imread("colors.jpg"))
+  EXPECT_CALL(*mockLoader, imread(std::filesystem::path("colors.jpg")))
       .WillOnce(::testing::Return(image));
 
   ImageHandler handler(std::move(mockLoader));
   auto colors = handler.getDominantColors("colors.jpg", 1);
 
-  EXPECT_EQ(colors.size(), 1);
+  EXPECT_EQ(colors.size(), 1U);
   EXPECT_NEAR(colors[0][0], 255.0, 10.0); // Red channel
   EXPECT_NEAR(colors[0][1], 0.0, 10.0);   // Green
   EXPECT_NEAR(colors[0][2], 0.0, 10.0);   // Blue
@@ -119,7 +120,7 @@ TEST(ImageHandlerTest, GetBlurScore) {
   cv::Mat sharpImage(10, 10, CV_8UC1, cv::Scalar(128));
   // Make it sharp by adding high frequency
   sharpImage.at<uchar>(5, 5) = 255;
-  EXPECT_CALL(*mockLoader, imread("sharp.jpg"))
+  EXPECT_CALL(*mockLoader, imread(std::filesystem::path("sharp.jpg")))
       .WillOnce(::testing::Return(sharpImage));
 
   ImageHandler handler(std::move(mockLoader));
@@ -132,7 +133,7 @@ TEST(ImageHandlerTest, GetContrastRatio) {
   auto mockLoader = std::make_unique<MockImageLoader>();
   cv::Mat image(10, 10, CV_8UC1, cv::Scalar(100));
   image.at<uchar>(5, 5) = 200; // Add some contrast
-  EXPECT_CALL(*mockLoader, imread("contrast.jpg"))
+  EXPECT_CALL(*mockLoader, imread(std::filesystem::path("contrast.jpg")))
       .WillOnce(::testing::Return(image));
 
   ImageHandler handler(std::move(mockLoader));
@@ -144,7 +145,7 @@ TEST(ImageHandlerTest, GetContrastRatio) {
 TEST(ImageHandlerTest, GetSaturationLevel) {
   auto mockLoader = std::make_unique<MockImageLoader>();
   cv::Mat image(10, 10, CV_8UC3, cv::Scalar(100, 150, 200)); // High saturation
-  EXPECT_CALL(*mockLoader, imread("saturated.jpg"))
+  EXPECT_CALL(*mockLoader, imread(std::filesystem::path("saturated.jpg")))
       .WillOnce(::testing::Return(image));
 
   ImageHandler handler(std::move(mockLoader));
@@ -157,22 +158,22 @@ TEST(ImageHandlerTest, GetSaturationLevel) {
 TEST(ImageHandlerTest, GetHistogram) {
   auto mockLoader = std::make_unique<MockImageLoader>();
   cv::Mat image(2, 2, CV_8UC3, cv::Scalar(0, 128, 255));
-  EXPECT_CALL(*mockLoader, imread("histogram.jpg"))
+  EXPECT_CALL(*mockLoader, imread(std::filesystem::path("histogram.jpg")))
       .WillOnce(::testing::Return(image));
 
   ImageHandler handler(std::move(mockLoader));
   auto histogram = handler.getHistogram("histogram.jpg");
 
-  EXPECT_EQ(histogram.size(), 3);      // RGB channels
-  EXPECT_EQ(histogram[0].size(), 256); // 256 bins
-  EXPECT_EQ(histogram[1].size(), 256);
-  EXPECT_EQ(histogram[2].size(), 256);
+  EXPECT_EQ(histogram.size(), 3U);      // RGB channels
+  EXPECT_EQ(histogram[0].size(), 256U); // 256 bins
+  EXPECT_EQ(histogram[1].size(), 256U);
+  EXPECT_EQ(histogram[2].size(), 256U);
 }
 
 TEST(ImageHandlerTest, GetAspectRatio) {
   auto mockLoader = std::make_unique<MockImageLoader>();
   cv::Mat image(100, 200, CV_8UC3); // width 200, height 100
-  EXPECT_CALL(*mockLoader, imread("aspect.jpg"))
+  EXPECT_CALL(*mockLoader, imread(std::filesystem::path("aspect.jpg")))
       .WillOnce(::testing::Return(image));
 
   ImageHandler handler(std::move(mockLoader));
@@ -184,7 +185,7 @@ TEST(ImageHandlerTest, GetAspectRatio) {
 TEST(ImageHandlerTest, GetImageEntropy) {
   auto mockLoader = std::make_unique<MockImageLoader>();
   cv::Mat image(10, 10, CV_8UC1, cv::Scalar(128));
-  EXPECT_CALL(*mockLoader, imread("entropy.jpg"))
+  EXPECT_CALL(*mockLoader, imread(std::filesystem::path("entropy.jpg")))
       .WillOnce(::testing::Return(image));
 
   ImageHandler handler(std::move(mockLoader));
@@ -208,10 +209,10 @@ TEST(ImageGlobalTest, GetImageSaturationLevelReal) {
 
 TEST(ImageGlobalTest, GetImageHistogramReal) {
   auto histogram = vidicant::getImageHistogram("examples/sample.jpg");
-  EXPECT_EQ(histogram.size(), 3);      // RGB channels
-  EXPECT_EQ(histogram[0].size(), 256); // 256 bins per channel
-  EXPECT_EQ(histogram[1].size(), 256);
-  EXPECT_EQ(histogram[2].size(), 256);
+  EXPECT_EQ(histogram.size(), 3U);      // RGB channels
+  EXPECT_EQ(histogram[0].size(), 256U); // 256 bins per channel
+  EXPECT_EQ(histogram[1].size(), 256U);
+  EXPECT_EQ(histogram[2].size(), 256U);
 }
 
 TEST(ImageGlobalTest, GetImageAspectRatioReal) {
@@ -222,7 +223,7 @@ TEST(ImageGlobalTest, GetImageAspectRatioReal) {
 TEST(ImageHandlerTest, GetNoiseEstimate) {
   auto mockLoader = std::make_unique<MockImageLoader>();
   cv::Mat image(20, 20, CV_8UC1, cv::Scalar(128));
-  EXPECT_CALL(*mockLoader, imread("noise.jpg"))
+  EXPECT_CALL(*mockLoader, imread(std::filesystem::path("noise.jpg")))
       .WillOnce(::testing::Return(image));
 
   ImageHandler handler(std::move(mockLoader));
@@ -234,7 +235,7 @@ TEST(ImageHandlerTest, GetNoiseEstimate) {
 TEST(ImageHandlerTest, GetNoiseEstimateTooSmall) {
   auto mockLoader = std::make_unique<MockImageLoader>();
   cv::Mat image(2, 2, CV_8UC1, cv::Scalar(100));
-  EXPECT_CALL(*mockLoader, imread("tiny.jpg"))
+  EXPECT_CALL(*mockLoader, imread(std::filesystem::path("tiny.jpg")))
       .WillOnce(::testing::Return(image));
 
   ImageHandler handler(std::move(mockLoader));
@@ -247,7 +248,7 @@ TEST(ImageHandlerTest, GetSymmetryScore) {
   auto mockLoader = std::make_unique<MockImageLoader>();
   // A uniform image should be perfectly symmetric
   cv::Mat image(20, 20, CV_8UC1, cv::Scalar(100));
-  EXPECT_CALL(*mockLoader, imread("sym.jpg"))
+  EXPECT_CALL(*mockLoader, imread(std::filesystem::path("sym.jpg")))
       .WillOnce(::testing::Return(image));
 
   ImageHandler handler(std::move(mockLoader));
@@ -260,7 +261,7 @@ TEST(ImageHandlerTest, GetSymmetryScore) {
 TEST(ImageHandlerTest, GetTextureFeatures) {
   auto mockLoader = std::make_unique<MockImageLoader>();
   cv::Mat image(20, 20, CV_8UC1, cv::Scalar(100));
-  EXPECT_CALL(*mockLoader, imread("texture.jpg"))
+  EXPECT_CALL(*mockLoader, imread(std::filesystem::path("texture.jpg")))
       .WillOnce(::testing::Return(image));
 
   ImageHandler handler(std::move(mockLoader));
@@ -276,7 +277,7 @@ TEST(ImageHandlerTest, GetTextureFeatures) {
 TEST(ImageHandlerTest, GetPerceptualHash) {
   auto mockLoader = std::make_unique<MockImageLoader>();
   cv::Mat image(10, 10, CV_8UC3, cv::Scalar(100, 100, 100));
-  EXPECT_CALL(*mockLoader, imread("hash.jpg"))
+  EXPECT_CALL(*mockLoader, imread(std::filesystem::path("hash.jpg")))
       .WillOnce(::testing::Return(image));
 
   ImageHandler handler(std::move(mockLoader));
@@ -289,7 +290,7 @@ TEST(ImageHandlerTest, GetPerceptualHash) {
 TEST(ImageHandlerTest, GetPerceptualHashEmpty) {
   auto mockLoader = std::make_unique<MockImageLoader>();
   cv::Mat empty;
-  EXPECT_CALL(*mockLoader, imread("bad.jpg"))
+  EXPECT_CALL(*mockLoader, imread(std::filesystem::path("bad.jpg")))
       .WillOnce(::testing::Return(empty));
 
   ImageHandler handler(std::move(mockLoader));
@@ -302,7 +303,8 @@ TEST(ImageHandlerTest, GetWhiteBalanceScore) {
   auto mockLoader = std::make_unique<MockImageLoader>();
   // Neutral grey: perfect white balance
   cv::Mat image(10, 10, CV_8UC3, cv::Scalar(128, 128, 128));
-  EXPECT_CALL(*mockLoader, imread("wb.jpg")).WillOnce(::testing::Return(image));
+  EXPECT_CALL(*mockLoader, imread(std::filesystem::path("wb.jpg")))
+      .WillOnce(::testing::Return(image));
 
   ImageHandler handler(std::move(mockLoader));
   double score = handler.getWhiteBalanceScore("wb.jpg");
@@ -313,7 +315,7 @@ TEST(ImageHandlerTest, GetWhiteBalanceScore) {
 TEST(ImageHandlerTest, GetWhiteBalanceScoreGrayscale) {
   auto mockLoader = std::make_unique<MockImageLoader>();
   cv::Mat image(10, 10, CV_8UC1, cv::Scalar(128));
-  EXPECT_CALL(*mockLoader, imread("gray_wb.jpg"))
+  EXPECT_CALL(*mockLoader, imread(std::filesystem::path("gray_wb.jpg")))
       .WillOnce(::testing::Return(image));
 
   ImageHandler handler(std::move(mockLoader));
@@ -325,7 +327,7 @@ TEST(ImageHandlerTest, GetWhiteBalanceScoreGrayscale) {
 TEST(ImageHandlerTest, GetHueHistogram) {
   auto mockLoader = std::make_unique<MockImageLoader>();
   cv::Mat image(10, 10, CV_8UC3, cv::Scalar(255, 0, 0)); // Blue in BGR
-  EXPECT_CALL(*mockLoader, imread("hue.jpg"))
+  EXPECT_CALL(*mockLoader, imread(std::filesystem::path("hue.jpg")))
       .WillOnce(::testing::Return(image));
 
   ImageHandler handler(std::move(mockLoader));
@@ -337,7 +339,7 @@ TEST(ImageHandlerTest, GetHueHistogram) {
 TEST(ImageHandlerTest, GetHueHistogramGrayscale) {
   auto mockLoader = std::make_unique<MockImageLoader>();
   cv::Mat image(10, 10, CV_8UC1, cv::Scalar(128));
-  EXPECT_CALL(*mockLoader, imread("gray_hue.jpg"))
+  EXPECT_CALL(*mockLoader, imread(std::filesystem::path("gray_hue.jpg")))
       .WillOnce(::testing::Return(image));
 
   ImageHandler handler(std::move(mockLoader));
@@ -350,7 +352,7 @@ TEST(ImageHandlerTest, GetSharpnessScore) {
   auto mockLoader = std::make_unique<MockImageLoader>();
   cv::Mat image(10, 10, CV_8UC1, cv::Scalar(128));
   image.at<uchar>(5, 5) = 255; // Sharp edge
-  EXPECT_CALL(*mockLoader, imread("sharp.jpg"))
+  EXPECT_CALL(*mockLoader, imread(std::filesystem::path("sharp.jpg")))
       .WillOnce(::testing::Return(image));
 
   ImageHandler handler(std::move(mockLoader));
@@ -363,7 +365,7 @@ TEST(ImageHandlerTest, CompareImagesSelf) {
   auto mockLoader = std::make_unique<MockImageLoader>();
   cv::Mat image(20, 20, CV_8UC3, cv::Scalar(100, 150, 200));
   // Cache returns image after first load; mock called once for "img.jpg"
-  EXPECT_CALL(*mockLoader, imread("img.jpg"))
+  EXPECT_CALL(*mockLoader, imread(std::filesystem::path("img.jpg")))
       .WillOnce(::testing::Return(image));
 
   ImageHandler handler(std::move(mockLoader));
@@ -376,9 +378,9 @@ TEST(ImageHandlerTest, CompareImagesDifferent) {
   auto mockLoader = std::make_unique<MockImageLoader>();
   cv::Mat white(20, 20, CV_8UC3, cv::Scalar(255, 255, 255));
   cv::Mat black(20, 20, CV_8UC3, cv::Scalar(0, 0, 0));
-  EXPECT_CALL(*mockLoader, imread("white.jpg"))
+  EXPECT_CALL(*mockLoader, imread(std::filesystem::path("white.jpg")))
       .WillOnce(::testing::Return(white));
-  EXPECT_CALL(*mockLoader, imread("black.jpg"))
+  EXPECT_CALL(*mockLoader, imread(std::filesystem::path("black.jpg")))
       .WillOnce(::testing::Return(black));
 
   ImageHandler handler(std::move(mockLoader));
@@ -391,7 +393,7 @@ TEST(ImageHandlerTest, GetNoiseTypeGaussian) {
   auto mockLoader = std::make_unique<MockImageLoader>();
   // Smooth uniform image → gaussian classification
   cv::Mat image(20, 20, CV_8UC1, cv::Scalar(128));
-  EXPECT_CALL(*mockLoader, imread("gaussian_noise.jpg"))
+  EXPECT_CALL(*mockLoader, imread(std::filesystem::path("gaussian_noise.jpg")))
       .WillOnce(::testing::Return(image));
 
   ImageHandler handler(std::move(mockLoader));
@@ -408,7 +410,7 @@ TEST(ImageHandlerTest, GetNoiseTypeSaltPepper) {
     image.at<uchar>(i, i) = 0;
     image.at<uchar>(i, 19 - i) = 255;
   }
-  EXPECT_CALL(*mockLoader, imread("sp_noise.jpg"))
+  EXPECT_CALL(*mockLoader, imread(std::filesystem::path("sp_noise.jpg")))
       .WillOnce(::testing::Return(image));
 
   ImageHandler handler(std::move(mockLoader));
@@ -424,7 +426,9 @@ TEST(ImageHandlerTest, GetMetrics) {
       .WillRepeatedly(::testing::Return(image));
 
   ImageHandler handler(std::move(mockLoader));
-  ImageMetrics m = handler.getMetrics("test.jpg");
+  auto mOpt = handler.getMetrics("test.jpg");
+  ASSERT_TRUE(mOpt.has_value());
+  const auto &m = *mOpt;
 
   EXPECT_EQ(m.width, 20);
   EXPECT_EQ(m.height, 20);
@@ -491,7 +495,9 @@ TEST(ImageGlobalTest, GetImageNoiseTypeReal) {
 }
 
 TEST(ImageGlobalTest, GetImageMetricsReal) {
-  ImageMetrics m = vidicant::getImageMetrics("examples/sample.jpg");
+  auto mOpt = vidicant::getImageMetrics("examples/sample.jpg");
+  ASSERT_TRUE(mOpt.has_value());
+  const auto &m = *mOpt;
   EXPECT_GT(m.width, 0);
   EXPECT_GT(m.height, 0);
   EXPECT_GE(m.blur_score, 0.0);

@@ -11,9 +11,11 @@
 
 #include "vidicant/types.hpp"
 #include <array>
+#include <filesystem>
 #include <memory>
 #include <opencv2/core.hpp>
 #include <opencv2/videoio.hpp>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -36,7 +38,7 @@ public:
   virtual ~IVideoLoader() = default;
 
   // Opens a video file for reading.
-  virtual bool open(const std::string &filename) = 0;
+  virtual bool open(const std::filesystem::path &filename) = 0;
 
   // Gets the total number of frames in the video.
   virtual int getFrameCount() = 0;
@@ -63,7 +65,7 @@ public:
   // Opens a video file using OpenCV's VideoCapture.
   // @param filename The path to the video file.
   // @return True if the video was opened successfully, false otherwise.
-  bool open(const std::string &filename) override;
+  bool open(const std::filesystem::path &filename) override;
 
   // Gets the frame count using OpenCV.
   int getFrameCount() override;
@@ -93,8 +95,8 @@ private:
 class VideoHandler {
 private:
   std::unique_ptr<IVideoLoader>
-      loader_;           // Pointer to the video loader implementation.
-  std::string filename_; // Stored filename for reopening if needed.
+      loader_; // Pointer to the video loader implementation.
+  std::filesystem::path filename_; // Stored filename for reopening if needed.
 
 public:
   // Constructs a VideoHandler with the specified loader.
@@ -104,23 +106,24 @@ public:
   // Opens a video file for analysis.
   // @param filename The path to the video file.
   // @return True if the video was opened successfully, false otherwise.
-  bool open(const std::string &filename);
+  bool open(const std::filesystem::path &filename);
 
-  // Gets the total frame count of the video.
+  // Gets the total frame count of the video. Returns nullopt on failure.
   // @return The number of frames.
-  int getFrameCount();
+  std::optional<int> getFrameCount();
 
-  // Gets the frames per second of the video.
+  // Gets the frames per second of the video. Returns nullopt on failure.
   // @return The FPS value.
-  double getFPS();
+  std::optional<double> getFPS();
 
-  // Gets the resolution of the video.
+  // Gets the resolution of the video. Returns nullopt on failure.
   // @return A pair containing width and height.
-  std::pair<int, int> getResolution();
+  std::optional<std::pair<int, int>> getResolution();
 
-  // Calculates the duration of the video in seconds.
+  // Calculates the duration of the video in seconds. Returns nullopt on
+  // failure.
   // @return The duration in seconds.
-  double getDuration();
+  std::optional<double> getDuration();
 
   // Extracts the first frame of the video.
   // @return A cv::Mat object containing the first frame.
@@ -137,7 +140,7 @@ public:
   // Saves the first frame as an image file.
   // @param imagePath The path where to save the image.
   // @return True if saved successfully, false otherwise.
-  bool saveFirstFrameAsImage(const std::string &imagePath);
+  bool saveFirstFrameAsImage(const std::filesystem::path &imagePath);
 
   // Calculates a motion score based on frame differences.
   // @return A motion score (higher values indicate more motion).
@@ -196,10 +199,11 @@ public:
   // Bhattacharyya histogram distance on sampled frames.
   // @param otherFilename Path to the second video.
   // @return Similarity in [0, 1] (1 = most similar), or -1 on error.
-  double compareVideos(const std::string &otherFilename);
+  double compareVideos(const std::filesystem::path &otherFilename);
 
-  // Returns a VideoMetrics struct populated with all analyses.
-  VideoMetrics getMetrics();
+  // Returns a VideoMetrics struct populated with all analyses. Returns nullopt
+  // on failure.
+  std::optional<VideoMetrics> getMetrics();
 };
 
 // Convenience functions for video analysis.
@@ -207,77 +211,80 @@ public:
 // These standalone functions mirror the VideoHandler methods, allowing for
 // direct use without manually constructing handler objects.
 
-// Convenience function to get video frame count.
-int getVideoFrameCount(const std::string &filename);
+// Convenience function to get video frame count. Returns nullopt on failure.
+std::optional<int> getVideoFrameCount(const std::filesystem::path &filename);
 
-// Convenience function to get video FPS.
-double getVideoFPS(const std::string &filename);
+// Convenience function to get video FPS. Returns nullopt on failure.
+std::optional<double> getVideoFPS(const std::filesystem::path &filename);
 
-// Convenience function to get video resolution.
-std::pair<int, int> getVideoResolution(const std::string &filename);
+// Convenience function to get video resolution. Returns nullopt on failure.
+std::optional<std::pair<int, int>>
+getVideoResolution(const std::filesystem::path &filename);
 
-// Convenience function to get video duration.
-double getVideoDuration(const std::string &filename);
+// Convenience function to get video duration. Returns nullopt on failure.
+std::optional<double> getVideoDuration(const std::filesystem::path &filename);
 
 // Convenience function to extract first frame.
-cv::Mat extractFirstFrame(const std::string &filename);
+cv::Mat extractFirstFrame(const std::filesystem::path &filename);
 
 // Convenience function to get average brightness.
-double getVideoAverageBrightness(const std::string &filename);
+double getVideoAverageBrightness(const std::filesystem::path &filename);
 
 // Convenience function to check if video is grayscale.
-bool isVideoGrayscale(const std::string &filename);
+bool isVideoGrayscale(const std::filesystem::path &filename);
 
 // Convenience function to save first frame as image.
-bool saveFirstFrameAsImage(const std::string &videoPath,
-                           const std::string &imagePath);
+bool saveFirstFrameAsImage(const std::filesystem::path &videoPath,
+                           const std::filesystem::path &imagePath);
 
 // Convenience function to get motion score.
-double getVideoMotionScore(const std::string &filename);
+double getVideoMotionScore(const std::filesystem::path &filename);
 
 // Convenience function to get dominant colors.
 std::vector<std::array<double, 3>>
-getVideoDominantColors(const std::string &filename);
+getVideoDominantColors(const std::filesystem::path &filename);
 
 // Convenience function to detect scene changes.
-std::vector<int> detectVideoSceneChanges(const std::string &filename,
+std::vector<int> detectVideoSceneChanges(const std::filesystem::path &filename,
                                          double threshold = 30.0);
 
 // Convenience function to get frame rate stability.
-double getVideoFrameRateStability(const std::string &filename);
+double getVideoFrameRateStability(const std::filesystem::path &filename);
 
 // Convenience function to get color consistency.
-double getVideoColorConsistency(const std::string &filename);
+double getVideoColorConsistency(const std::filesystem::path &filename);
 
 // Convenience function to get optical flow magnitude.
-double getVideoOpticalFlowMagnitude(const std::string &filename);
+double getVideoOpticalFlowMagnitude(const std::filesystem::path &filename);
 
 // Convenience function to check for audio track.
-bool videoHasAudioTrack(const std::string &filename);
+bool videoHasAudioTrack(const std::filesystem::path &filename);
 
 // Convenience function to get shot length statistics.
-ShotLengthStats getVideoShotLengthStats(const std::string &filename,
+ShotLengthStats getVideoShotLengthStats(const std::filesystem::path &filename,
                                         double threshold = 30.0);
 
 // Convenience function to get flicker score.
-double getVideoFlickerScore(const std::string &filename);
+double getVideoFlickerScore(const std::filesystem::path &filename);
 
 // Convenience function to get best thumbnail frame index.
-int getVideoBestThumbnailIndex(const std::string &filename);
+int getVideoBestThumbnailIndex(const std::filesystem::path &filename);
 
 // Convenience function to get temporal brightness curve.
 std::vector<double>
-getVideoTemporalBrightnessCurve(const std::string &filename);
+getVideoTemporalBrightnessCurve(const std::filesystem::path &filename);
 
 // Convenience function to get codec FOURCC string.
-std::string getVideoCodecFourcc(const std::string &filename);
+std::string getVideoCodecFourcc(const std::filesystem::path &filename);
 
 // Convenience function to compare two videos.
-double compareVideos(const std::string &filename1,
-                     const std::string &filename2);
+double compareVideos(const std::filesystem::path &filename1,
+                     const std::filesystem::path &filename2);
 
-// Convenience function to get all video metrics at once.
-VideoMetrics getVideoMetrics(const std::string &filename);
+// Convenience function to get all video metrics at once. Returns nullopt on
+// failure.
+std::optional<VideoMetrics>
+getVideoMetrics(const std::filesystem::path &filename);
 
 } // namespace vidicant
 

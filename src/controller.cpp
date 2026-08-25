@@ -19,11 +19,11 @@
 
 namespace vidicant {
 
-bool isImageFile(const std::string &filename) {
+bool isImageFile(const std::filesystem::path &filename) {
   return io::isImageFile(filename);
 }
 
-bool isVideoFile(const std::string &filename) {
+bool isVideoFile(const std::filesystem::path &filename) {
   return io::isVideoFile(filename);
 }
 
@@ -110,19 +110,25 @@ static nlohmann::json formatImageMetricsJson(const ImageMetrics &m,
 }
 
 // Function to process an image file
-nlohmann::json processImage(const std::string &filename,
-                            const std::string &model_path,
+nlohmann::json processImage(const std::filesystem::path &filename,
+                            const std::filesystem::path &model_path,
                             const std::string &task, int top_k,
                             float conf_threshold, float nms_threshold) {
   // Load and analyse the image once via a single ImageHandler.
-  ImageMetrics m = vidicant::getImageMetrics(filename, model_path, task, top_k,
-                                             conf_threshold, nms_threshold);
-  return formatImageMetricsJson(m, filename);
+  auto mOpt = vidicant::getImageMetrics(filename, model_path, task, top_k,
+                                        conf_threshold, nms_threshold);
+  if (!mOpt.has_value()) {
+    nlohmann::json result;
+    result["filename"] = filename.string();
+    result["error"] = "Failed to load image";
+    return result;
+  }
+  return formatImageMetricsJson(*mOpt, filename.string());
 }
 
 // Function to process an in-memory image buffer
 nlohmann::json processImageBytes(const uint8_t *buffer, size_t len,
-                                 const std::string &model_path,
+                                 const std::filesystem::path &model_path,
                                  const std::string &task, int top_k,
                                  float conf_threshold, float nms_threshold) {
   ImageMetrics m = vidicant::getImageMetricsFromBuffer(
@@ -131,13 +137,13 @@ nlohmann::json processImageBytes(const uint8_t *buffer, size_t len,
 }
 
 // Function to process a video file
-nlohmann::json processVideo(const std::string &filename) {
+nlohmann::json processVideo(const std::filesystem::path &filename) {
   nlohmann::json result;
-  result["filename"] = filename;
+  result["filename"] = filename.string();
 
   // Validate the file can be opened before the expensive full analysis.
-  int frameCount = vidicant::getVideoFrameCount(filename);
-  if (frameCount == -1) {
+  auto frameCountOpt = vidicant::getVideoFrameCount(filename);
+  if (!frameCountOpt.has_value() || *frameCountOpt <= 0) {
     result["error"] = "Failed to load video";
     return result;
   }
@@ -153,8 +159,7 @@ nlohmann::json processVideo(const std::string &filename) {
     result["first_frame_extracted"] = false;
   }
 
-  std::filesystem::path videoPath(filename);
-  std::string imageOutput = videoPath.stem().string() + "_first_frame.jpg";
+  std::string imageOutput = filename.stem().string() + "_first_frame.jpg";
   bool saved = vidicant::saveFirstFrameAsImage(filename, imageOutput);
   result["first_frame_saved"] = saved;
   if (saved) {
@@ -162,7 +167,12 @@ nlohmann::json processVideo(const std::string &filename) {
   }
 
   // Compute all remaining metrics in a single pass via VideoMetrics.
-  VideoMetrics m = vidicant::getVideoMetrics(filename);
+  auto mOpt = vidicant::getVideoMetrics(filename);
+  if (!mOpt.has_value()) {
+    result["error"] = "Failed to load video";
+    return result;
+  }
+  const VideoMetrics &m = *mOpt;
 
   result["frame_count"] = m.frame_count;
   result["fps"] = m.fps;
