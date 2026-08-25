@@ -37,4 +37,3 @@ zig fmt build.zig
 - [docs/use_cases.md](docs/use_cases.md)
 - [docs/architecture_and_bindings.md](docs/architecture_and_bindings.md)
 - [docs/apple_frameworks_comparison.md](docs/apple_frameworks_comparison.md)
-
