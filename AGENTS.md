@@ -34,5 +34,7 @@ zig fmt build.zig
 - [USERGUIDE.md](USERGUIDE.md)
 - [CONTRIBUTING.md](CONTRIBUTING.md)
 - [TODO.md](TODO.md)
+- [docs/use_cases.md](docs/use_cases.md)
 - [docs/architecture_and_bindings.md](docs/architecture_and_bindings.md)
 - [docs/apple_frameworks_comparison.md](docs/apple_frameworks_comparison.md)
+

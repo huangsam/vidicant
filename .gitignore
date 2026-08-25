@@ -44,7 +44,9 @@ test_data/*
 !test_data/.gitkeep
 tests/fixtures/downloads/
 benchmarks/data/
+*.tar.gz
+*.y4m
+*.y4m.gz
 *.tmp.mp4
 *.tmp.jpg
 *.tmp.png
-
