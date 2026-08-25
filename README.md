@@ -7,11 +7,11 @@ Vidicant is a fast, cross-platform library for image and video analysis, feature
 
 ## Features
 
-- **Image Analysis**: Dimensions, blur, dominant colors, GLCM texture, dHash perceptual hashing.
-- **Video Analytics**: FPS, motion scoring, optical flow, scene cuts, best thumbnail selection.
-- **Neural Engine**: Classification (Top-K), object & face detection (NMS), embeddings, quality rating.
+- **Image Analysis**: Blur, dominant colors, GLCM texture, and perceptual hashing (dHash).
+- **Video Analytics**: Motion scoring, optical flow, scene cuts, and thumbnail selection.
+- **Neural Engine**: Top-K classification, object & face detection, embeddings, and quality rating.
 - **Zero-Dependency Python**: Pure stdlib `ctypes` wrapper around native `libvidicant`.
-- **Cross-Platform**: macOS, Linux (x86_64 / arm64), and Windows via WSL2.
+- **Cross-Platform**: macOS, Linux (x86_64/arm64), and Windows (WSL2).
 
 ## Quick Start
 
