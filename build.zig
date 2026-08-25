@@ -204,12 +204,12 @@ pub fn build(b: *std.Build) void {
 
         // Native unit tests on Linux
         const test_img_exe = createLinuxCxxCommand(b, &test_image_sources, opencv_path, "test_image", false, true);
-        const run_test_img = b.addSystemCommand(&.{});
+        const run_test_img = std.Build.Step.Run.create(b, "run test_image");
         run_test_img.addFileArg(test_img_exe);
         test_native_step.dependOn(&run_test_img.step);
 
         const test_vid_exe = createLinuxCxxCommand(b, &test_video_sources, opencv_path, "test_video", false, true);
-        const run_test_vid = b.addSystemCommand(&.{});
+        const run_test_vid = std.Build.Step.Run.create(b, "run test_video");
         run_test_vid.addFileArg(test_vid_exe);
         test_native_step.dependOn(&run_test_vid.step);
         return;
