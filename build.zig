@@ -72,12 +72,18 @@ pub fn build(b: *std.Build) void {
     const install_to_pkg = b.option(bool, "install-to-pkg", "Copy shared library directly into vidicant/ directory for wheel staging") orelse false;
     const os = target.result.os.tag;
 
-    // Test step: Runs the python e2e test suite
-    const test_step = b.step("test", "Run end-to-end test suite");
-    const test_cmd = b.addSystemCommand(&.{ "python3", "e2e.py" });
-    test_cmd.setEnvironmentVariable("PYTHONPATH", ".");
-    test_cmd.step.dependOn(b.getInstallStep());
-    test_step.dependOn(&test_cmd.step);
+    // Test steps
+    const test_step = b.step("test", "Run all unit and end-to-end tests");
+    const test_native_step = b.step("test-native", "Run native C++ unit tests (GTest/GMock)");
+    const test_e2e_step = b.step("test-e2e", "Run Python end-to-end test suite");
+
+    const test_e2e_cmd = b.addSystemCommand(&.{ "python3", "e2e.py" });
+    test_e2e_cmd.setEnvironmentVariable("PYTHONPATH", ".");
+    test_e2e_cmd.step.dependOn(b.getInstallStep());
+    test_e2e_step.dependOn(&test_e2e_cmd.step);
+
+    test_step.dependOn(test_native_step);
+    test_step.dependOn(test_e2e_step);
 
     // Linux: System OpenCV packages use GNU libstdc++ ABI.
     // Use host C++ compiler to guarantee ABI compatibility with system OpenCV.
@@ -130,6 +136,37 @@ pub fn build(b: *std.Build) void {
         const exe_out = exe_cmd.addOutputFileArg("vidicant_cli");
         const install_exe = b.addInstallFile(exe_out, "bin/vidicant_cli");
         b.getInstallStep().dependOn(&install_exe.step);
+
+        // Native unit tests on Linux
+        const test_img_cmd = b.addSystemCommand(&.{ "c++", "-std=c++17", "-O3", "-I", "include", "src/core/image_ops.cpp", "src/dnn/dnn_engine.cpp", "src/io/file_detector.cpp", "src/image.cpp", "test/test_image.cpp", "-lgmock_main", "-lgmock", "-lgtest", "-lpthread" });
+        if (opencv_path) |p| {
+            test_img_cmd.addArgs(&.{ "-I", b.fmt("{s}/include", .{p}), "-L", b.fmt("{s}/lib", .{p}) });
+        } else {
+            test_img_cmd.addArgs(&.{ "-I", "/usr/include/opencv4", "-I", "/usr/include/opencv5", "-I", "/usr/local/include", "-I", "/usr/include" });
+        }
+        for (opencv_libs) |lib_name| {
+            test_img_cmd.addArg(b.fmt("-l{s}", .{lib_name}));
+        }
+        test_img_cmd.addArg("-o");
+        const test_img_exe = test_img_cmd.addOutputFileArg("test_image");
+        const run_test_img = b.addSystemCommand(&.{});
+        run_test_img.addFileArg(test_img_exe);
+        test_native_step.dependOn(&run_test_img.step);
+
+        const test_vid_cmd = b.addSystemCommand(&.{ "c++", "-std=c++17", "-O3", "-I", "include", "src/core/video_ops.cpp", "src/core/image_ops.cpp", "src/io/file_detector.cpp", "src/video.cpp", "test/test_video.cpp", "-lgmock_main", "-lgmock", "-lgtest", "-lpthread" });
+        if (opencv_path) |p| {
+            test_vid_cmd.addArgs(&.{ "-I", b.fmt("{s}/include", .{p}), "-L", b.fmt("{s}/lib", .{p}) });
+        } else {
+            test_vid_cmd.addArgs(&.{ "-I", "/usr/include/opencv4", "-I", "/usr/include/opencv5", "-I", "/usr/local/include", "-I", "/usr/include" });
+        }
+        for (opencv_libs) |lib_name| {
+            test_vid_cmd.addArg(b.fmt("-l{s}", .{lib_name}));
+        }
+        test_vid_cmd.addArg("-o");
+        const test_vid_exe = test_vid_cmd.addOutputFileArg("test_video");
+        const run_test_vid = b.addSystemCommand(&.{});
+        run_test_vid.addFileArg(test_vid_exe);
+        test_native_step.dependOn(&run_test_vid.step);
         return;
     }
 
@@ -185,4 +222,69 @@ pub fn build(b: *std.Build) void {
         .root_module = exe_mod,
     });
     b.installArtifact(exe);
+
+    // Native C++ tests (GTest)
+    const test_image_mod = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+    });
+    test_image_mod.addCSourceFiles(.{
+        .files = &.{
+            "src/core/image_ops.cpp",
+            "src/dnn/dnn_engine.cpp",
+            "src/io/file_detector.cpp",
+            "src/image.cpp",
+            "test/test_image.cpp",
+        },
+        .flags = &.{ "-std=c++17", "-Wall", "-Wextra" },
+    });
+    test_image_mod.addIncludePath(.{ .cwd_relative = "include" });
+    configureOpenCV(b, test_image_mod, target, opencv_path);
+    for (opencv_libs) |lib_name| {
+        test_image_mod.linkSystemLibrary(lib_name, .{});
+    }
+    test_image_mod.linkSystemLibrary("gmock_main", .{});
+    test_image_mod.linkSystemLibrary("gmock", .{});
+    test_image_mod.linkSystemLibrary("gtest", .{});
+    test_image_mod.link_libc = true;
+    test_image_mod.link_libcpp = true;
+
+    const test_image_exe = b.addExecutable(.{
+        .name = "test_image",
+        .root_module = test_image_mod,
+    });
+    const run_test_image = b.addRunArtifact(test_image_exe);
+    test_native_step.dependOn(&run_test_image.step);
+
+    const test_video_mod = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+    });
+    test_video_mod.addCSourceFiles(.{
+        .files = &.{
+            "src/core/video_ops.cpp",
+            "src/core/image_ops.cpp",
+            "src/io/file_detector.cpp",
+            "src/video.cpp",
+            "test/test_video.cpp",
+        },
+        .flags = &.{ "-std=c++17", "-Wall", "-Wextra" },
+    });
+    test_video_mod.addIncludePath(.{ .cwd_relative = "include" });
+    configureOpenCV(b, test_video_mod, target, opencv_path);
+    for (opencv_libs) |lib_name| {
+        test_video_mod.linkSystemLibrary(lib_name, .{});
+    }
+    test_video_mod.linkSystemLibrary("gmock_main", .{});
+    test_video_mod.linkSystemLibrary("gmock", .{});
+    test_video_mod.linkSystemLibrary("gtest", .{});
+    test_video_mod.link_libc = true;
+    test_video_mod.link_libcpp = true;
+
+    const test_video_exe = b.addExecutable(.{
+        .name = "test_video",
+        .root_module = test_video_mod,
+    });
+    const run_test_video = b.addRunArtifact(test_video_exe);
+    test_native_step.dependOn(&run_test_video.step);
 }

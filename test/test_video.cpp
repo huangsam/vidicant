@@ -78,7 +78,8 @@ TEST(VideoHandlerTest, OpenFail) {
 TEST(VideoHandlerTest, ExtractFirstFrameWithMock) {
   auto mockLoader = std::make_unique<MockVideoLoader>();
   cv::Mat fakeFrame(100, 200, CV_8UC3, cv::Scalar(10, 20, 30));
-  EXPECT_CALL(*mockLoader, open("mock.mp4")).WillOnce(::testing::Return(true));
+  EXPECT_CALL(*mockLoader, open("mock.mp4"))
+      .WillRepeatedly(::testing::Return(true));
   EXPECT_CALL(*mockLoader, readFrame()).WillOnce(::testing::Return(fakeFrame));
 
   VideoHandler handler(std::move(mockLoader));
@@ -96,7 +97,8 @@ TEST(VideoHandlerTest, GetAverageBrightnessWithMock) {
   cv::Mat frame2(10, 10, CV_8UC3, cv::Scalar(200, 200, 200));
   cv::Mat emptyFrame;
 
-  EXPECT_CALL(*mockLoader, open("mock.mp4")).WillOnce(::testing::Return(true));
+  EXPECT_CALL(*mockLoader, open("mock.mp4"))
+      .WillRepeatedly(::testing::Return(true));
   EXPECT_CALL(*mockLoader, readFrame())
       .WillOnce(::testing::Return(frame1))
       .WillOnce(::testing::Return(frame2))
@@ -112,7 +114,8 @@ TEST(VideoHandlerTest, GetAverageBrightnessWithMock) {
 TEST(VideoHandlerTest, IsGrayscaleWithMock) {
   auto mockLoader = std::make_unique<MockVideoLoader>();
   cv::Mat grayFrame(10, 10, CV_8UC1, cv::Scalar(128));
-  EXPECT_CALL(*mockLoader, open("mock.mp4")).WillOnce(::testing::Return(true));
+  EXPECT_CALL(*mockLoader, open("mock.mp4"))
+      .WillRepeatedly(::testing::Return(true));
   EXPECT_CALL(*mockLoader, readFrame()).WillOnce(::testing::Return(grayFrame));
 
   VideoHandler handler(std::move(mockLoader));
@@ -122,68 +125,59 @@ TEST(VideoHandlerTest, IsGrayscaleWithMock) {
 
 // Tests using real files for methods that need frame reading
 TEST(VideoGlobalTest, GetVideoFrameCountReal) {
-  int frameCount =
-      vidicant::getVideoFrameCount("/workspaces/vidicant/examples/sample.mp4");
+  int frameCount = vidicant::getVideoFrameCount("examples/sample.mp4");
   EXPECT_EQ(frameCount, 250);
 }
 
 TEST(VideoGlobalTest, GetVideoFPSReal) {
-  double fps =
-      vidicant::getVideoFPS("/workspaces/vidicant/examples/sample.mp4");
+  double fps = vidicant::getVideoFPS("examples/sample.mp4");
   EXPECT_EQ(fps, 25.0);
 }
 
 TEST(VideoGlobalTest, GetVideoResolutionReal) {
-  auto [width, height] =
-      vidicant::getVideoResolution("/workspaces/vidicant/examples/sample.mp4");
+  auto [width, height] = vidicant::getVideoResolution("examples/sample.mp4");
   EXPECT_EQ(width, 320);
   EXPECT_EQ(height, 176);
 }
 
 TEST(VideoGlobalTest, GetVideoDurationReal) {
-  double duration =
-      vidicant::getVideoDuration("/workspaces/vidicant/examples/sample.mp4");
+  double duration = vidicant::getVideoDuration("examples/sample.mp4");
   EXPECT_EQ(duration, 10.0);
 }
 
 TEST(VideoGlobalTest, ExtractFirstFrameReal) {
-  cv::Mat frame =
-      vidicant::extractFirstFrame("/workspaces/vidicant/examples/sample.mp4");
+  cv::Mat frame = vidicant::extractFirstFrame("examples/sample.mp4");
   EXPECT_FALSE(frame.empty());
   EXPECT_EQ(frame.cols, 320);
   EXPECT_EQ(frame.rows, 176);
 }
 
 TEST(VideoGlobalTest, GetVideoAverageBrightnessReal) {
-  double brightness = vidicant::getVideoAverageBrightness(
-      "/workspaces/vidicant/examples/sample.mp4");
+  double brightness =
+      vidicant::getVideoAverageBrightness("examples/sample.mp4");
   EXPECT_GT(brightness, 0.0);
 }
 
 TEST(VideoGlobalTest, IsVideoGrayscaleReal) {
-  bool grayscale =
-      vidicant::isVideoGrayscale("/workspaces/vidicant/examples/sample.mp4");
+  bool grayscale = vidicant::isVideoGrayscale("examples/sample.mp4");
   EXPECT_FALSE(grayscale);
 }
 
 TEST(VideoGlobalTest, SaveFirstFrameAsImageReal) {
-  bool saved = vidicant::saveFirstFrameAsImage(
-      "/workspaces/vidicant/examples/sample.mp4",
-      "/workspaces/vidicant/examples/test_first_frame.jpg");
+  bool saved = vidicant::saveFirstFrameAsImage("examples/sample.mp4",
+                                               "examples/test_first_frame.jpg");
   EXPECT_TRUE(saved);
   // Clean up
-  std::remove("/workspaces/vidicant/examples/test_first_frame.jpg");
+  std::remove("examples/test_first_frame.jpg");
 }
 
 TEST(VideoGlobalTest, GetVideoMotionScoreReal) {
-  double motion =
-      vidicant::getVideoMotionScore("/workspaces/vidicant/examples/sample.mp4");
+  double motion = vidicant::getVideoMotionScore("examples/sample.mp4");
   EXPECT_GE(motion, 0.0);
 }
 
 TEST(VideoGlobalTest, GetVideoDominantColorsReal) {
-  auto colors = vidicant::getVideoDominantColors(
-      "/workspaces/vidicant/examples/sample.mp4");
+  auto colors = vidicant::getVideoDominantColors("examples/sample.mp4");
   EXPECT_EQ(colors.size(), 3);
   for (const auto &color : colors) {
     EXPECT_GE(color[0], 0.0);
@@ -196,8 +190,7 @@ TEST(VideoGlobalTest, GetVideoDominantColorsReal) {
 }
 
 TEST(VideoGlobalTest, DetectVideoSceneChangesReal) {
-  auto sceneChanges = vidicant::detectVideoSceneChanges(
-      "/workspaces/vidicant/examples/sample.mp4");
+  auto sceneChanges = vidicant::detectVideoSceneChanges("examples/sample.mp4");
   // Should return a vector of frame indices
   EXPECT_TRUE(sceneChanges.empty() ||
               !sceneChanges.empty()); // Can be empty or have changes
@@ -207,22 +200,21 @@ TEST(VideoGlobalTest, DetectVideoSceneChangesReal) {
 }
 
 TEST(VideoGlobalTest, GetVideoFrameRateStabilityReal) {
-  double stability = vidicant::getVideoFrameRateStability(
-      "/workspaces/vidicant/examples/sample.mp4");
+  double stability =
+      vidicant::getVideoFrameRateStability("examples/sample.mp4");
   EXPECT_GE(stability, 0.0); // Should be non-negative
 }
 
 TEST(VideoGlobalTest, GetVideoColorConsistencyReal) {
-  double consistency = vidicant::getVideoColorConsistency(
-      "/workspaces/vidicant/examples/sample.mp4");
+  double consistency =
+      vidicant::getVideoColorConsistency("examples/sample.mp4");
   EXPECT_GE(consistency, 0.0); // Should be non-negative
   EXPECT_LE(consistency, 1.0); // Coefficient of variation should be <= 1.0
 }
 
 // Tests for new video convenience functions
 TEST(VideoGlobalTest, DetectVideoSceneChangesConvenienceReal) {
-  auto sceneChanges = vidicant::detectVideoSceneChanges(
-      "/workspaces/vidicant/examples/sample.mp4");
+  auto sceneChanges = vidicant::detectVideoSceneChanges("examples/sample.mp4");
   // Should return a vector of frame indices
   EXPECT_TRUE(sceneChanges.empty() ||
               !sceneChanges.empty()); // Can be empty or have changes
@@ -232,35 +224,33 @@ TEST(VideoGlobalTest, DetectVideoSceneChangesConvenienceReal) {
 }
 
 TEST(VideoGlobalTest, GetVideoFrameRateStabilityConvenienceReal) {
-  double stability = vidicant::getVideoFrameRateStability(
-      "/workspaces/vidicant/examples/sample.mp4");
+  double stability =
+      vidicant::getVideoFrameRateStability("examples/sample.mp4");
   EXPECT_GE(stability, 0.0); // Should be non-negative
 }
 
 TEST(VideoGlobalTest, GetVideoColorConsistencyConvenienceReal) {
-  double consistency = vidicant::getVideoColorConsistency(
-      "/workspaces/vidicant/examples/sample.mp4");
+  double consistency =
+      vidicant::getVideoColorConsistency("examples/sample.mp4");
   EXPECT_GE(consistency, 0.0); // Should be non-negative
   EXPECT_LE(consistency, 1.0); // Coefficient of variation should be <= 1.0
 }
 
 TEST(VideoGlobalTest, GetVideoOpticalFlowMagnitudeReal) {
-  double flow = vidicant::getVideoOpticalFlowMagnitude(
-      "/workspaces/vidicant/examples/sample.mp4");
+  double flow = vidicant::getVideoOpticalFlowMagnitude("examples/sample.mp4");
   EXPECT_GE(flow, 0.0);
 }
 
 TEST(VideoGlobalTest, VideoHasAudioTrackReal) {
   // Just verify it returns a boolean without crashing
-  bool hasAudio =
-      vidicant::videoHasAudioTrack("/workspaces/vidicant/examples/sample.mp4");
+  bool hasAudio = vidicant::videoHasAudioTrack("examples/sample.mp4");
   (void)hasAudio;
   SUCCEED();
 }
 
 TEST(VideoGlobalTest, GetVideoShotLengthStatsReal) {
-  ShotLengthStats stats = vidicant::getVideoShotLengthStats(
-      "/workspaces/vidicant/examples/sample.mp4");
+  ShotLengthStats stats =
+      vidicant::getVideoShotLengthStats("examples/sample.mp4");
   EXPECT_GE(stats.count, 1);
   EXPECT_GT(stats.mean, 0.0);
   EXPECT_GE(stats.min, 0.0);
@@ -268,20 +258,17 @@ TEST(VideoGlobalTest, GetVideoShotLengthStatsReal) {
 }
 
 TEST(VideoGlobalTest, GetVideoFlickerScoreReal) {
-  double flicker = vidicant::getVideoFlickerScore(
-      "/workspaces/vidicant/examples/sample.mp4");
+  double flicker = vidicant::getVideoFlickerScore("examples/sample.mp4");
   EXPECT_GE(flicker, 0.0);
 }
 
 TEST(VideoGlobalTest, GetVideoBestThumbnailIndexReal) {
-  int idx = vidicant::getVideoBestThumbnailIndex(
-      "/workspaces/vidicant/examples/sample.mp4");
+  int idx = vidicant::getVideoBestThumbnailIndex("examples/sample.mp4");
   EXPECT_GE(idx, 0);
 }
 
 TEST(VideoGlobalTest, GetVideoTemporalBrightnessCurveReal) {
-  auto curve = vidicant::getVideoTemporalBrightnessCurve(
-      "/workspaces/vidicant/examples/sample.mp4");
+  auto curve = vidicant::getVideoTemporalBrightnessCurve("examples/sample.mp4");
   EXPECT_GT(curve.size(), 0U);
   EXPECT_LE(curve.size(), 100U);
   for (double b : curve) {
@@ -291,22 +278,19 @@ TEST(VideoGlobalTest, GetVideoTemporalBrightnessCurveReal) {
 }
 
 TEST(VideoGlobalTest, GetVideoCodecFourccReal) {
-  std::string fourcc =
-      vidicant::getVideoCodecFourcc("/workspaces/vidicant/examples/sample.mp4");
+  std::string fourcc = vidicant::getVideoCodecFourcc("examples/sample.mp4");
   // May be empty on some backends; just check it doesn't crash
   EXPECT_TRUE(fourcc.empty() || fourcc.length() == 4);
 }
 
 TEST(VideoGlobalTest, CompareVideoWithSelfReal) {
   double sim =
-      vidicant::compareVideos("/workspaces/vidicant/examples/sample.mp4",
-                              "/workspaces/vidicant/examples/sample.mp4");
+      vidicant::compareVideos("examples/sample.mp4", "examples/sample.mp4");
   EXPECT_GT(sim, 0.5); // Same video should be highly similar
 }
 
 TEST(VideoGlobalTest, GetVideoMetricsReal) {
-  VideoMetrics m =
-      vidicant::getVideoMetrics("/workspaces/vidicant/examples/sample.mp4");
+  VideoMetrics m = vidicant::getVideoMetrics("examples/sample.mp4");
   EXPECT_GT(m.frame_count, 0);
   EXPECT_GT(m.fps, 0.0);
   EXPECT_GT(m.width, 0);

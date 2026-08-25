@@ -15,7 +15,7 @@
 namespace vidicant {
 
 bool OpenCVVideoLoader::open(const std::string &filename) {
-  cap_.open(filename, cv::CAP_FFMPEG);
+  cap_.open(filename);
   return cap_.isOpened();
 }
 

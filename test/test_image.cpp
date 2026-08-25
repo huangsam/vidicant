@@ -196,21 +196,18 @@ TEST(ImageHandlerTest, GetImageEntropy) {
 
 // Tests using real files for convenience functions
 TEST(ImageGlobalTest, GetImageContrastRatioReal) {
-  double contrast = vidicant::getImageContrastRatio(
-      "/workspaces/vidicant/examples/sample.jpg");
+  double contrast = vidicant::getImageContrastRatio("examples/sample.jpg");
   EXPECT_GT(contrast, 1.0); // Should have some contrast
 }
 
 TEST(ImageGlobalTest, GetImageSaturationLevelReal) {
-  double saturation = vidicant::getImageSaturationLevel(
-      "/workspaces/vidicant/examples/sample.jpg");
+  double saturation = vidicant::getImageSaturationLevel("examples/sample.jpg");
   EXPECT_GE(saturation, 0.0);
   EXPECT_LE(saturation, 255.0);
 }
 
 TEST(ImageGlobalTest, GetImageHistogramReal) {
-  auto histogram =
-      vidicant::getImageHistogram("/workspaces/vidicant/examples/sample.jpg");
+  auto histogram = vidicant::getImageHistogram("examples/sample.jpg");
   EXPECT_EQ(histogram.size(), 3);      // RGB channels
   EXPECT_EQ(histogram[0].size(), 256); // 256 bins per channel
   EXPECT_EQ(histogram[1].size(), 256);
@@ -218,8 +215,7 @@ TEST(ImageGlobalTest, GetImageHistogramReal) {
 }
 
 TEST(ImageGlobalTest, GetImageAspectRatioReal) {
-  double aspectRatio =
-      vidicant::getImageAspectRatio("/workspaces/vidicant/examples/sample.jpg");
+  double aspectRatio = vidicant::getImageAspectRatio("examples/sample.jpg");
   EXPECT_GT(aspectRatio, 0.0);
 }
 
@@ -439,21 +435,18 @@ TEST(ImageHandlerTest, GetMetrics) {
 
 // Tests using real files for new convenience functions
 TEST(ImageGlobalTest, GetImageNoiseEstimateReal) {
-  double noise = vidicant::getImageNoiseEstimate(
-      "/workspaces/vidicant/examples/sample.jpg");
+  double noise = vidicant::getImageNoiseEstimate("examples/sample.jpg");
   EXPECT_GE(noise, 0.0);
 }
 
 TEST(ImageGlobalTest, GetImageSymmetryScoreReal) {
-  double sym = vidicant::getImageSymmetryScore(
-      "/workspaces/vidicant/examples/sample.jpg");
+  double sym = vidicant::getImageSymmetryScore("examples/sample.jpg");
   EXPECT_GE(sym, -1.0);
   EXPECT_LE(sym, 1.0);
 }
 
 TEST(ImageGlobalTest, GetImageTextureFeaturesReal) {
-  TextureFeatures tf = vidicant::getImageTextureFeatures(
-      "/workspaces/vidicant/examples/sample.jpg");
+  TextureFeatures tf = vidicant::getImageTextureFeatures("examples/sample.jpg");
   EXPECT_GE(tf.contrast, 0.0);
   EXPECT_GE(tf.energy, 0.0);
   EXPECT_LE(tf.energy, 1.0);
@@ -461,23 +454,19 @@ TEST(ImageGlobalTest, GetImageTextureFeaturesReal) {
 }
 
 TEST(ImageGlobalTest, GetImagePerceptualHashReal) {
-  uint64_t hash = vidicant::getImagePerceptualHash(
-      "/workspaces/vidicant/examples/sample.jpg");
+  uint64_t hash = vidicant::getImagePerceptualHash("examples/sample.jpg");
   // Hash of same image called twice must be identical
-  uint64_t hash2 = vidicant::getImagePerceptualHash(
-      "/workspaces/vidicant/examples/sample.jpg");
+  uint64_t hash2 = vidicant::getImagePerceptualHash("examples/sample.jpg");
   EXPECT_EQ(hash, hash2);
 }
 
 TEST(ImageGlobalTest, GetImageWhiteBalanceScoreReal) {
-  double wb = vidicant::getImageWhiteBalanceScore(
-      "/workspaces/vidicant/examples/sample.jpg");
+  double wb = vidicant::getImageWhiteBalanceScore("examples/sample.jpg");
   EXPECT_GE(wb, 0.0);
 }
 
 TEST(ImageGlobalTest, GetImageHueHistogramReal) {
-  auto hueHist = vidicant::getImageHueHistogram(
-      "/workspaces/vidicant/examples/sample.jpg");
+  auto hueHist = vidicant::getImageHueHistogram("examples/sample.jpg");
   EXPECT_EQ(hueHist.size(), 36U);
   int total = 0;
   for (int bin : hueHist)
@@ -486,27 +475,23 @@ TEST(ImageGlobalTest, GetImageHueHistogramReal) {
 }
 
 TEST(ImageGlobalTest, GetImageSharpnessScoreReal) {
-  double sharpness = vidicant::getImageSharpnessScore(
-      "/workspaces/vidicant/examples/sample.jpg");
+  double sharpness = vidicant::getImageSharpnessScore("examples/sample.jpg");
   EXPECT_GT(sharpness, 0.0);
 }
 
 TEST(ImageGlobalTest, CompareImagesWithSelfReal) {
   double ssim =
-      vidicant::compareImages("/workspaces/vidicant/examples/sample.jpg",
-                              "/workspaces/vidicant/examples/sample.jpg");
+      vidicant::compareImages("examples/sample.jpg", "examples/sample.jpg");
   EXPECT_NEAR(ssim, 1.0, 0.01);
 }
 
 TEST(ImageGlobalTest, GetImageNoiseTypeReal) {
-  std::string noiseType =
-      vidicant::getImageNoiseType("/workspaces/vidicant/examples/sample.jpg");
+  std::string noiseType = vidicant::getImageNoiseType("examples/sample.jpg");
   EXPECT_TRUE(noiseType == "gaussian" || noiseType == "salt_and_pepper");
 }
 
 TEST(ImageGlobalTest, GetImageMetricsReal) {
-  ImageMetrics m =
-      vidicant::getImageMetrics("/workspaces/vidicant/examples/sample.jpg");
+  ImageMetrics m = vidicant::getImageMetrics("examples/sample.jpg");
   EXPECT_GT(m.width, 0);
   EXPECT_GT(m.height, 0);
   EXPECT_GE(m.blur_score, 0.0);
