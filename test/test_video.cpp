@@ -1,4 +1,4 @@
-#include "vidicant/video.hpp"
+#include "vidicant/vidicant.hpp"
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <opencv2/opencv.hpp>
@@ -315,4 +315,15 @@ TEST(VideoGlobalTest, GetVideoMetricsReal) {
   EXPECT_GE(m.best_thumbnail_frame, 0);
   EXPECT_GT(m.temporal_brightness_curve.size(), 0U);
   EXPECT_GE(m.shot_length_stats.count, 1);
+}
+
+TEST(VideoGlobalTest, GetVideoMetricsWithOptions) {
+  VideoAnalysisOptions opts;
+  opts.scene_change_threshold = 25.0;
+  opts.dominant_colors_k = 3;
+  auto mOpt = vidicant::getVideoMetrics("examples/sample.mp4", opts);
+  ASSERT_TRUE(mOpt.has_value());
+  EXPECT_GT(mOpt->frame_count, 0);
+  EXPECT_GT(mOpt->fps, 0.0);
+  EXPECT_GE(mOpt->shot_length_stats.count, 1);
 }

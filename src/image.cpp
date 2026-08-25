@@ -450,4 +450,40 @@ getBatchImageMetrics(const std::vector<std::filesystem::path> &filenames,
   return results;
 }
 
+std::optional<ImageMetrics>
+ImageHandler::getMetrics(const std::filesystem::path &filename,
+                         const ImageAnalysisOptions &options) {
+  return getMetrics(filename, options.model_path, options.task, options.top_k,
+                    options.conf_threshold, options.nms_threshold);
+}
+
+std::optional<ImageMetrics>
+getImageMetrics(const std::filesystem::path &filename,
+                const ImageAnalysisOptions &options) {
+  return getImageMetrics(filename, options.model_path, options.task,
+                         options.top_k, options.conf_threshold,
+                         options.nms_threshold);
+}
+
+ImageMetrics getImageMetrics(const cv::Mat &mat,
+                             const ImageAnalysisOptions &options) {
+  return getImageMetrics(mat, options.model_path, options.task, options.top_k,
+                         options.conf_threshold, options.nms_threshold);
+}
+
+ImageMetrics getImageMetricsFromBuffer(const uint8_t *buffer, size_t len,
+                                       const ImageAnalysisOptions &options) {
+  return getImageMetricsFromBuffer(
+      buffer, len, options.model_path, options.task, options.top_k,
+      options.conf_threshold, options.nms_threshold);
+}
+
+std::vector<ImageMetrics>
+getBatchImageMetrics(const std::vector<std::filesystem::path> &filenames,
+                     const ImageAnalysisOptions &options) {
+  return getBatchImageMetrics(filenames, options.model_path, options.task,
+                              options.top_k, options.conf_threshold,
+                              options.nms_threshold);
+}
+
 } // namespace vidicant

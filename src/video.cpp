@@ -348,6 +348,11 @@ double VideoHandler::compareVideos(const std::filesystem::path &otherFilename) {
 }
 
 std::optional<VideoMetrics> VideoHandler::getMetrics() {
+  return getMetrics(VideoAnalysisOptions{});
+}
+
+std::optional<VideoMetrics>
+VideoHandler::getMetrics(const VideoAnalysisOptions &options) {
   auto frameCountOpt = getFrameCount();
   if (!frameCountOpt.has_value() || *frameCountOpt <= 0)
     return std::nullopt;
@@ -372,7 +377,7 @@ std::optional<VideoMetrics> VideoHandler::getMetrics() {
   m.optical_flow_magnitude = getOpticalFlowMagnitude();
   m.has_audio_track = hasAudioTrack();
   if (!m.is_grayscale) {
-    m.shot_length_stats = getShotLengthStats();
+    m.shot_length_stats = getShotLengthStats(options.scene_change_threshold);
   }
   m.flicker_score = getFlickerScore();
   m.best_thumbnail_frame = getBestThumbnailIndex();
@@ -537,10 +542,16 @@ double compareVideos(const std::filesystem::path &filename1,
 
 std::optional<VideoMetrics>
 getVideoMetrics(const std::filesystem::path &filename) {
+  return getVideoMetrics(filename, VideoAnalysisOptions{});
+}
+
+std::optional<VideoMetrics>
+getVideoMetrics(const std::filesystem::path &filename,
+                const VideoAnalysisOptions &options) {
   VideoHandler handler(std::make_unique<OpenCVVideoLoader>());
   if (!handler.open(filename))
     return std::nullopt;
-  return handler.getMetrics();
+  return handler.getMetrics(options);
 }
 
 } // namespace vidicant

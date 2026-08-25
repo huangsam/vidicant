@@ -171,6 +171,11 @@ public:
              const std::filesystem::path &model_path = "",
              const std::string &task = "quality", int top_k = 5,
              float conf_threshold = 0.5f, float nms_threshold = 0.4f);
+
+  // Returns an ImageMetrics struct populated with all analyses for the file
+  // using options.
+  std::optional<ImageMetrics> getMetrics(const std::filesystem::path &filename,
+                                         const ImageAnalysisOptions &options);
 };
 
 // Convenience functions for image analysis.
@@ -227,37 +232,43 @@ double getImageSymmetryScore(const std::filesystem::path &filename);
 // Convenience function to get GLCM texture features.
 TextureFeatures getImageTextureFeatures(const std::filesystem::path &filename);
 
-// Convenience function to get perceptual hash.
+// Convenience function to get 64-bit difference hash (dHash).
 uint64_t getImagePerceptualHash(const std::filesystem::path &filename);
+uint64_t getImagePerceptualHash(const cv::Mat &mat);
 
-// Convenience function to get white balance score.
+// Convenience function to estimate white balance quality score.
 double getImageWhiteBalanceScore(const std::filesystem::path &filename);
 
-// Convenience function to get hue histogram.
+// Convenience function to get 36-bin hue histogram.
 std::vector<int> getImageHueHistogram(const std::filesystem::path &filename);
 
-// Convenience function to get sharpness score.
+// Convenience function to get sharpness score (mean Sobel magnitude).
 double getImageSharpnessScore(const std::filesystem::path &filename);
 
-// Convenience function to compare two images via SSIM.
+// Convenience function to compute SSIM between two images.
 double compareImages(const std::filesystem::path &filename1,
                      const std::filesystem::path &filename2);
 
 // Convenience function to classify noise type.
 std::string getImageNoiseType(const std::filesystem::path &filename);
 
-// Convenience function to assess aesthetic & technical quality via ONNX model.
+// Convenience function to evaluate quality via ONNX DNN model.
 std::pair<double, double>
 assessImageQualityDNN(const std::filesystem::path &filename,
                       const std::filesystem::path &model_path);
 
-// Convenience function to get all image metrics at once. Returns nullopt on
-// load failure.
+// Convenience function to get all image metrics. Returns nullopt on load
+// failure.
 std::optional<ImageMetrics>
 getImageMetrics(const std::filesystem::path &filename,
                 const std::filesystem::path &model_path = "",
                 const std::string &task = "quality", int top_k = 5,
                 float conf_threshold = 0.5f, float nms_threshold = 0.4f);
+
+// Convenience function to get all image metrics using options.
+std::optional<ImageMetrics>
+getImageMetrics(const std::filesystem::path &filename,
+                const ImageAnalysisOptions &options);
 
 // Convenience function to get all image metrics from an in-memory decoded
 // image.
@@ -267,6 +278,9 @@ ImageMetrics getImageMetrics(const cv::Mat &mat,
                              float conf_threshold = 0.5f,
                              float nms_threshold = 0.4f);
 
+ImageMetrics getImageMetrics(const cv::Mat &mat,
+                             const ImageAnalysisOptions &options);
+
 // Convenience function to decode an image buffer and retrieve its metrics.
 ImageMetrics
 getImageMetricsFromBuffer(const uint8_t *buffer, size_t len,
@@ -275,12 +289,19 @@ getImageMetricsFromBuffer(const uint8_t *buffer, size_t len,
                           float conf_threshold = 0.5f,
                           float nms_threshold = 0.4f);
 
+ImageMetrics getImageMetricsFromBuffer(const uint8_t *buffer, size_t len,
+                                       const ImageAnalysisOptions &options);
+
 // Processes a batch of image files in parallel and returns their metrics.
 std::vector<ImageMetrics>
 getBatchImageMetrics(const std::vector<std::filesystem::path> &filenames,
                      const std::filesystem::path &model_path = "",
                      const std::string &task = "quality", int top_k = 5,
                      float conf_threshold = 0.5f, float nms_threshold = 0.4f);
+
+std::vector<ImageMetrics>
+getBatchImageMetrics(const std::vector<std::filesystem::path> &filenames,
+                     const ImageAnalysisOptions &options);
 
 } // namespace vidicant
 

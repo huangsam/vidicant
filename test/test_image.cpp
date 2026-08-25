@@ -1,4 +1,4 @@
-#include "vidicant/image.hpp"
+#include "vidicant/vidicant.hpp"
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <opencv2/opencv.hpp>
@@ -505,4 +505,14 @@ TEST(ImageGlobalTest, GetImageMetricsReal) {
   EXPECT_EQ(m.hue_histogram.size(), 36U);
   EXPECT_GE(m.sharpness_score, 0.0);
   EXPECT_FALSE(m.noise_type.empty());
+}
+
+TEST(ImageGlobalTest, GetImageMetricsWithOptions) {
+  ImageAnalysisOptions opts;
+  opts.task = "quality";
+  opts.dominant_colors_k = 3;
+  auto mOpt = vidicant::getImageMetrics("examples/sample.jpg", opts);
+  ASSERT_TRUE(mOpt.has_value());
+  EXPECT_GT(mOpt->width, 0);
+  EXPECT_GT(mOpt->height, 0);
 }

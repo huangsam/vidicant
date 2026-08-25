@@ -204,6 +204,10 @@ public:
   // Returns a VideoMetrics struct populated with all analyses. Returns nullopt
   // on failure.
   std::optional<VideoMetrics> getMetrics();
+
+  // Returns a VideoMetrics struct populated with all analyses using options.
+  // Returns nullopt on failure.
+  std::optional<VideoMetrics> getMetrics(const VideoAnalysisOptions &options);
 };
 
 // Convenience functions for video analysis.
@@ -285,6 +289,12 @@ double compareVideos(const std::filesystem::path &filename1,
 // failure.
 std::optional<VideoMetrics>
 getVideoMetrics(const std::filesystem::path &filename);
+
+// Convenience function to get all video metrics using options. Returns nullopt
+// on failure.
+std::optional<VideoMetrics>
+getVideoMetrics(const std::filesystem::path &filename,
+                const VideoAnalysisOptions &options);
 
 } // namespace vidicant
 

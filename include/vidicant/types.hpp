@@ -6,6 +6,7 @@
 
 #include <array>
 #include <cstdint>
+#include <filesystem>
 #include <string>
 #include <vector>
 
@@ -111,6 +112,26 @@ struct VideoMetrics {
   int best_thumbnail_frame{0};
   std::vector<double> temporal_brightness_curve;
   std::string codec_fourcc;
+};
+
+// Struct: ImageAnalysisOptions
+// Configures thresholds, parameters, and ML inference for image analysis.
+struct ImageAnalysisOptions {
+  std::filesystem::path model_path{""};
+  std::string task{"quality"};
+  int top_k{5};
+  float conf_threshold{0.5f};
+  float nms_threshold{0.4f};
+  int dominant_colors_k{3};
+};
+
+// Struct: VideoAnalysisOptions
+// Configures thresholds and parameters for video analysis.
+struct VideoAnalysisOptions {
+  double scene_change_threshold{30.0};
+  int dominant_colors_k{3};
+  int max_motion_frames{50};
+  int max_brightness_frames{100};
 };
 
 } // namespace vidicant
