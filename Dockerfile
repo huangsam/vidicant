@@ -3,13 +3,15 @@ FROM ubuntu:noble
 # Prevent interactive prompts during apt install
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install system build dependencies, OpenCV, and Python
+# Install system build dependencies, OpenCV, GTest/GMock, and Python
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     xz-utils \
     ca-certificates \
     g++ \
     libopencv-dev \
+    libgtest-dev \
+    libgmock-dev \
     nlohmann-json3-dev \
     python3 \
     python3-pip \
@@ -31,5 +33,5 @@ RUN ARCH=$(uname -m) && \
 
 WORKDIR /workspace
 
-# Default command: build, verify CLI binary, and run e2e test suite
-CMD ["bash", "-c", "zig build && ./zig-out/bin/vidicant_cli --image examples/sample.jpg --video examples/sample.mp4 && PYTHONPATH=. python3 e2e.py"]
+# Default command: build and run full test suite (native C++ unit tests & Python e2e)
+CMD ["zig", "build", "test"]
