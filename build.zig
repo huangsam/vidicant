@@ -57,37 +57,54 @@ const cli_sources = [_][]const u8{
     "src/video.cpp",
 };
 
-const test_image_sources = [_][]const u8{
-    "src/core/image_ops.cpp",
-    "src/dnn/dnn_engine.cpp",
-    "src/io/file_detector.cpp",
-    "src/image.cpp",
-    "test/test_image.cpp",
-};
+fn addIncludeIfExists(b: *std.Build, mod: *std.Build.Module, path: []const u8) void {
+    if (std.Io.Dir.accessAbsolute(b.graph.io, path, .{})) |_| {
+        mod.addIncludePath(.{ .cwd_relative = path });
+    } else |_| {}
+}
 
-const test_video_sources = [_][]const u8{
-    "src/core/video_ops.cpp",
-    "src/core/image_ops.cpp",
-    "src/io/file_detector.cpp",
-    "src/video.cpp",
-    "test/test_video.cpp",
-};
+fn addLibraryIfExists(b: *std.Build, mod: *std.Build.Module, path: []const u8) void {
+    if (std.Io.Dir.accessAbsolute(b.graph.io, path, .{})) |_| {
+        mod.addLibraryPath(.{ .cwd_relative = path });
+    } else |_| {}
+}
 
-fn configureOpenCV(b: *std.Build, mod: *std.Build.Module, target: std.Build.ResolvedTarget, custom_path: ?[]const u8) void {
+fn configureDependencies(b: *std.Build, mod: *std.Build.Module, target: std.Build.ResolvedTarget, custom_path: ?[]const u8) void {
     if (custom_path) |p| {
         const inc_path = b.fmt("{s}/include", .{p});
         const lib_path = b.fmt("{s}/lib", .{p});
-        mod.addIncludePath(.{ .cwd_relative = inc_path });
-        mod.addLibraryPath(.{ .cwd_relative = lib_path });
+        addIncludeIfExists(b, mod, inc_path);
+        addLibraryIfExists(b, mod, lib_path);
         return;
     }
 
     const os = target.result.os.tag;
     if (os == .macos) {
-        mod.addIncludePath(.{ .cwd_relative = "/opt/homebrew/include" });
-        mod.addIncludePath(.{ .cwd_relative = "/opt/homebrew/opt/opencv/include/opencv5" });
-        mod.addIncludePath(.{ .cwd_relative = "/opt/homebrew/opt/opencv/include/opencv4" });
-        mod.addLibraryPath(.{ .cwd_relative = "/opt/homebrew/opt/opencv/lib" });
+        const candidate_includes = [_][]const u8{
+            "/opt/homebrew/include",
+            "/opt/homebrew/opt/opencv/include/opencv5",
+            "/opt/homebrew/opt/opencv/include/opencv4",
+            "/opt/homebrew/opt/googletest/include",
+            "/usr/local/include",
+            "/usr/local/opt/opencv/include/opencv5",
+            "/usr/local/opt/opencv/include/opencv4",
+            "/usr/local/opt/googletest/include",
+        };
+        for (candidate_includes) |inc| {
+            addIncludeIfExists(b, mod, inc);
+        }
+
+        const candidate_libs = [_][]const u8{
+            "/opt/homebrew/lib",
+            "/opt/homebrew/opt/opencv/lib",
+            "/opt/homebrew/opt/googletest/lib",
+            "/usr/local/lib",
+            "/usr/local/opt/opencv/lib",
+            "/usr/local/opt/googletest/lib",
+        };
+        for (candidate_libs) |lib_path| {
+            addLibraryIfExists(b, mod, lib_path);
+        }
     }
 }
 
@@ -108,7 +125,7 @@ fn createVidicantModule(
         .flags = &cxx_flags,
     });
     mod.addIncludePath(.{ .cwd_relative = "include" });
-    configureOpenCV(b, mod, target, opencv_path);
+    configureDependencies(b, mod, target, opencv_path);
     for (opencv_libs) |lib_name| {
         mod.linkSystemLibrary(lib_name, .{});
     }
@@ -185,6 +202,27 @@ pub fn build(b: *std.Build) void {
     test_step.dependOn(test_native_step);
     test_step.dependOn(test_e2e_step);
 
+    // Auto-discover test files in test/ directory
+    var test_files: std.ArrayList([]const u8) = .empty;
+    const io = b.graph.io;
+    var test_dir = b.build_root.handle.openDir(io, "test", .{ .iterate = true }) catch null;
+    if (test_dir) |*dir| {
+        defer dir.close(io);
+        var iter = dir.iterate();
+        while (iter.next(io) catch null) |entry| {
+            if (entry.kind == .file and std.mem.startsWith(u8, entry.name, "test_") and std.mem.endsWith(u8, entry.name, ".cpp")) {
+                const path = b.fmt("test/{s}", .{entry.name});
+                test_files.append(b.allocator, path) catch @panic("OOM");
+            }
+        }
+    }
+    // Sort for deterministic test execution order
+    std.mem.sort([]const u8, test_files.items, {}, struct {
+        fn lessThan(_: void, a: []const u8, b_str: []const u8) bool {
+            return std.mem.lessThan(u8, a, b_str);
+        }
+    }.lessThan);
+
     // Linux: System OpenCV packages use GNU libstdc++ ABI.
     // Use host C++ compiler to guarantee ABI compatibility with system OpenCV.
     if (os == .linux) {
@@ -202,16 +240,18 @@ pub fn build(b: *std.Build) void {
         const install_exe = b.addInstallFile(exe_out, "bin/vidicant_cli");
         b.getInstallStep().dependOn(&install_exe.step);
 
-        // Native unit tests on Linux
-        const test_img_exe = createLinuxCxxCommand(b, &test_image_sources, opencv_path, "test_image", false, true);
-        const run_test_img = std.Build.Step.Run.create(b, "run test_image");
-        run_test_img.addFileArg(test_img_exe);
-        test_native_step.dependOn(&run_test_img.step);
+        // Native unit tests on Linux (auto-discovered)
+        for (test_files.items) |test_file| {
+            const test_basename = std.fs.path.stem(test_file);
+            const test_sources = b.allocator.alloc([]const u8, lib_sources.len + 1) catch @panic("OOM");
+            @memcpy(test_sources[0..lib_sources.len], &lib_sources);
+            test_sources[lib_sources.len] = test_file;
 
-        const test_vid_exe = createLinuxCxxCommand(b, &test_video_sources, opencv_path, "test_video", false, true);
-        const run_test_vid = std.Build.Step.Run.create(b, "run test_video");
-        run_test_vid.addFileArg(test_vid_exe);
-        test_native_step.dependOn(&run_test_vid.step);
+            const test_exe = createLinuxCxxCommand(b, test_sources, opencv_path, test_basename, false, true);
+            const run_test = std.Build.Step.Run.create(b, b.fmt("run {s}", .{test_basename}));
+            run_test.addFileArg(test_exe);
+            test_native_step.dependOn(&run_test.step);
+        }
         return;
     }
 
@@ -235,20 +275,19 @@ pub fn build(b: *std.Build) void {
     });
     b.installArtifact(exe);
 
-    // Native C++ tests (GTest)
-    const test_image_mod = createVidicantModule(b, target, optimize, &test_image_sources, opencv_path, true);
-    const test_image_exe = b.addExecutable(.{
-        .name = "test_image",
-        .root_module = test_image_mod,
-    });
-    const run_test_image = b.addRunArtifact(test_image_exe);
-    test_native_step.dependOn(&run_test_image.step);
+    // Native C++ tests (GTest) - auto-discovered
+    for (test_files.items) |test_file| {
+        const test_basename = std.fs.path.stem(test_file);
+        const test_sources = b.allocator.alloc([]const u8, lib_sources.len + 1) catch @panic("OOM");
+        @memcpy(test_sources[0..lib_sources.len], &lib_sources);
+        test_sources[lib_sources.len] = test_file;
 
-    const test_video_mod = createVidicantModule(b, target, optimize, &test_video_sources, opencv_path, true);
-    const test_video_exe = b.addExecutable(.{
-        .name = "test_video",
-        .root_module = test_video_mod,
-    });
-    const run_test_video = b.addRunArtifact(test_video_exe);
-    test_native_step.dependOn(&run_test_video.step);
+        const test_mod = createVidicantModule(b, target, optimize, test_sources, opencv_path, true);
+        const test_exe = b.addExecutable(.{
+            .name = test_basename,
+            .root_module = test_mod,
+        });
+        const run_test = b.addRunArtifact(test_exe);
+        test_native_step.dependOn(&run_test.step);
+    }
 }

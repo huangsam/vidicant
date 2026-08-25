@@ -576,7 +576,6 @@ def test_python_version_compatibility():
 
 def main():
     """Run all end-to-end tests."""
-    print("\n")
     print("=" * 60)
     print("VIDICANT END-TO-END TESTS")
     print("=" * 60)
