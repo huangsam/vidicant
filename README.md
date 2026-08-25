@@ -1,5 +1,8 @@
 # Vidicant
 
+[![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/huangsam/vidicant/ci.yml)](https://github.com/huangsam/vidicant/actions)
+[![License](https://img.shields.io/github/license/huangsam/vidicant)](https://github.com/huangsam/vidicant/blob/main/LICENSE)
+
 Vidicant is a fast, cross-platform library for image and video analysis, feature extraction, and neural assessment (C++17/OpenCV core with zero-dependency Python `ctypes` bindings and Zig 0.16 build system).
 
 ## Features
