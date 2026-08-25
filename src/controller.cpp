@@ -6,8 +6,8 @@
 // and analysis of images and videos.
 
 #include "vidicant/controller.hpp"
-#include "io/file_detector.hpp"
 #include "vidicant/image.hpp"
+#include "vidicant/io/file_detector.hpp"
 #include "vidicant/video.hpp"
 #include <algorithm>
 #include <filesystem>

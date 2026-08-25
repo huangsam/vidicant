@@ -1,7 +1,7 @@
 // File: dnn_engine.cpp
 // Implementation of the OpenCV DNN inference engine.
 
-#include "dnn_engine.hpp"
+#include "vidicant/dnn/dnn_engine.hpp"
 #include <algorithm>
 #include <cmath>
 #include <filesystem>

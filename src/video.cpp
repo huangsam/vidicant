@@ -3,7 +3,7 @@
 // functions.
 
 #include "vidicant/video.hpp"
-#include "core/video_ops.hpp"
+#include "vidicant/core/video_ops.hpp"
 #include <algorithm>
 #include <cmath>
 #include <iostream>

@@ -1,7 +1,7 @@
 // File: file_detector.cpp
 // Implementation of media file format detection.
 
-#include "file_detector.hpp"
+#include "vidicant/io/file_detector.hpp"
 #include <algorithm>
 #include <filesystem>
 #include <fstream>

@@ -1,7 +1,7 @@
 // File: image_ops.cpp
 // Implementation of core CV algorithms on cv::Mat instances.
 
-#include "image_ops.hpp"
+#include "vidicant/core/image_ops.hpp"
 #include <algorithm>
 #include <cmath>
 #include <numeric>

@@ -1,7 +1,7 @@
 // File: video_ops.cpp
 // Implementation of core CV algorithms for video frame processing.
 
-#include "video_ops.hpp"
+#include "vidicant/core/video_ops.hpp"
 #include <algorithm>
 #include <cmath>
 #include <numeric>

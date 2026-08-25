@@ -3,8 +3,8 @@
 // functions.
 
 #include "vidicant/image.hpp"
-#include "core/image_ops.hpp"
-#include "dnn/dnn_engine.hpp"
+#include "vidicant/core/image_ops.hpp"
+#include "vidicant/dnn/dnn_engine.hpp"
 #include <algorithm>
 #include <future>
 #include <iostream>
