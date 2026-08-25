@@ -67,9 +67,9 @@ vidicant_cli dedupe ./photos/ --threshold 5 --format json -o duplicates.json
 
 ## Documentation
 
-- **[USERGUIDE.md](USERGUIDE.md)** — Python API reference, schema specifications, CLI usage, and examples
-- **[CONTRIBUTING.md](CONTRIBUTING.md)** — Build instructions, C++ API reference, and development workflow
-- **[TODO.md](TODO.md)** — Project roadmap and planned feature tiers
-- **[AGENTS.md](AGENTS.md)** — Agent guidelines, constraints, and verification commands
-- **[docs/architecture_and_bindings.md](docs/architecture_and_bindings.md)** — Architecture, C-ABI layer, and design decisions
-- **[docs/apple_frameworks_comparison.md](docs/apple_frameworks_comparison.md)** — Comparison with Apple Vision & AVFoundation
+- **[USERGUIDE.md](USERGUIDE.md)** - Python API reference, schema specifications, CLI usage, and examples
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** - Build instructions, C++ API reference, and development workflow
+- **[TODO.md](TODO.md)** - Project roadmap and planned feature tiers
+- **[AGENTS.md](AGENTS.md)** - Agent guidelines, constraints, and verification commands
+- **[docs/architecture_and_bindings.md](docs/architecture_and_bindings.md)** - Architecture, C-ABI layer, and design decisions
+- **[docs/apple_frameworks_comparison.md](docs/apple_frameworks_comparison.md)** - Comparison with Apple Vision & AVFoundation
