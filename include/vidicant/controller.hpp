@@ -12,6 +12,8 @@
 #include <nlohmann/json.hpp>
 #include <string>
 
+namespace vidicant {
+
 // Function to determine if a file is an image based on extension or magic
 // bytes.
 bool isImageFile(const std::string &filename);
@@ -36,5 +38,7 @@ nlohmann::json processImageBytes(const uint8_t *buffer, size_t len,
 
 // Function to process a video file and return JSON result.
 nlohmann::json processVideo(const std::string &filename);
+
+} // namespace vidicant
 
 #endif // VIDICANT_CONTROLLER_HPP

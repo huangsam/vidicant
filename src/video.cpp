@@ -22,6 +22,8 @@ constexpr int kMaxBrightnessCurveFrames = 100;
 // distance; increasing it improves accuracy at the cost of more I/O.
 constexpr int kVideoCompareSampleCount = 10;
 
+namespace vidicant {
+
 bool OpenCVVideoLoader::open(const std::string &filename) {
   cap_.open(filename, cv::CAP_FFMPEG);
   return cap_.isOpened();
@@ -532,7 +534,6 @@ VideoMetrics VideoHandler::getMetrics() {
   return m;
 }
 
-namespace vidicant {
 int getVideoFrameCount(const std::string &filename) {
   VideoHandler handler(std::make_unique<OpenCVVideoLoader>());
   if (!handler.open(filename))

@@ -11,20 +11,20 @@ extern "C" {
 bool vidicant_is_image_file(const char *filename) {
   if (!filename)
     return false;
-  return isImageFile(std::string(filename));
+  return vidicant::isImageFile(std::string(filename));
 }
 
 bool vidicant_is_video_file(const char *filename) {
   if (!filename)
     return false;
-  return isVideoFile(std::string(filename));
+  return vidicant::isVideoFile(std::string(filename));
 }
 
 const char *vidicant_process_image(const char *filename) {
   if (!filename)
     return nullptr;
   try {
-    nlohmann::json res = processImage(std::string(filename));
+    nlohmann::json res = vidicant::processImage(std::string(filename));
     std::string s = res.dump();
     char *out = static_cast<char *>(std::malloc(s.size() + 1));
     std::memcpy(out, s.c_str(), s.size() + 1);
@@ -40,7 +40,7 @@ const char *vidicant_process_image_ml(const char *filename,
     return nullptr;
   try {
     std::string mp = model_path ? std::string(model_path) : "";
-    nlohmann::json res = processImage(std::string(filename), mp);
+    nlohmann::json res = vidicant::processImage(std::string(filename), mp);
     std::string s = res.dump();
     char *out = static_cast<char *>(std::malloc(s.size() + 1));
     std::memcpy(out, s.c_str(), s.size() + 1);
@@ -59,8 +59,8 @@ const char *vidicant_process_image_dnn(const char *filename,
   try {
     std::string mp = model_path ? std::string(model_path) : "";
     std::string tk = task ? std::string(task) : "quality";
-    nlohmann::json res = processImage(std::string(filename), mp, tk, top_k,
-                                      conf_threshold, nms_threshold);
+    nlohmann::json res = vidicant::processImage(
+        std::string(filename), mp, tk, top_k, conf_threshold, nms_threshold);
     std::string s = res.dump();
     char *out = static_cast<char *>(std::malloc(s.size() + 1));
     std::memcpy(out, s.c_str(), s.size() + 1);
@@ -80,8 +80,8 @@ const char *vidicant_process_image_bytes(const uint8_t *buffer, size_t len,
   try {
     std::string mp = model_path ? std::string(model_path) : "";
     std::string tk = task ? std::string(task) : "quality";
-    nlohmann::json res = processImageBytes(buffer, len, mp, tk, top_k,
-                                           conf_threshold, nms_threshold);
+    nlohmann::json res = vidicant::processImageBytes(
+        buffer, len, mp, tk, top_k, conf_threshold, nms_threshold);
     std::string s = res.dump();
     char *out = static_cast<char *>(std::malloc(s.size() + 1));
     std::memcpy(out, s.c_str(), s.size() + 1);
@@ -95,7 +95,7 @@ const char *vidicant_process_video(const char *filename) {
   if (!filename)
     return nullptr;
   try {
-    nlohmann::json res = processVideo(std::string(filename));
+    nlohmann::json res = vidicant::processVideo(std::string(filename));
     std::string s = res.dump();
     char *out = static_cast<char *>(std::malloc(s.size() + 1));
     std::memcpy(out, s.c_str(), s.size() + 1);

@@ -12,6 +12,8 @@
 #include <thread>
 #include <unordered_map>
 
+namespace vidicant {
+
 cv::Mat OpenCVImageLoader::imread(const std::string &filename) {
   return cv::imread(filename);
 }
@@ -943,8 +945,6 @@ ImageMetrics ImageHandler::getMetrics(const std::string &filename,
 
   return m;
 }
-
-namespace vidicant {
 
 std::pair<int, int> getImageDimensions(const std::string &filename) {
   auto loader = std::make_unique<OpenCVImageLoader>();

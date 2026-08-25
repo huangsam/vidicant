@@ -20,6 +20,8 @@
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/videoio.hpp>
 
+namespace vidicant {
+
 bool isImageFile(const std::string &filename) {
   if (!std::filesystem::exists(filename) ||
       std::filesystem::is_directory(filename)) {
@@ -300,3 +302,5 @@ nlohmann::json processVideo(const std::string &filename) {
 
   return result;
 }
+
+} // namespace vidicant

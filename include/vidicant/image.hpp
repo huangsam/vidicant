@@ -18,6 +18,8 @@
 #include <utility>
 #include <vector>
 
+namespace vidicant {
+
 // Struct: TextureFeatures
 // Gray-level co-occurrence matrix (GLCM) derived texture metrics.
 struct TextureFeatures {
@@ -232,12 +234,10 @@ public:
                           float nms_threshold = 0.4f);
 };
 
-// Namespace: vidicant
-// Namespace containing convenience functions for image analysis.
+// Convenience functions for image analysis.
 //
-// This namespace provides standalone functions that mirror the ImageHandler
-// methods, allowing for easier use without creating handler objects.
-namespace vidicant {
+// These standalone functions mirror the ImageHandler methods, allowing for
+// direct use without manually constructing handler objects.
 
 // Convenience function to get image dimensions.
 std::pair<int, int> getImageDimensions(const std::string &filename);

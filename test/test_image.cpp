@@ -3,6 +3,8 @@
 #include <gtest/gtest.h>
 #include <opencv2/opencv.hpp>
 
+using namespace vidicant;
+
 class MockImageLoader : public IImageLoader {
 public:
   MOCK_METHOD(cv::Mat, imread, (const std::string &), (override));

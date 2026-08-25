@@ -3,6 +3,8 @@
 #include <gtest/gtest.h>
 #include <opencv2/opencv.hpp>
 
+using namespace vidicant;
+
 class MockVideoLoader : public IVideoLoader {
 public:
   MOCK_METHOD(bool, open, (const std::string &), (override));

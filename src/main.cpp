@@ -15,6 +15,7 @@
 #include <vector>
 
 namespace fs = std::filesystem;
+using namespace vidicant;
 
 static int hammingDistance(uint64_t a, uint64_t b) {
   return static_cast<int>(std::bitset<64>(a ^ b).count());

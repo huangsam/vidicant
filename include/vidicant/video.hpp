@@ -21,6 +21,8 @@ namespace cv {
 class Mat;
 } // namespace cv
 
+namespace vidicant {
+
 // Struct: ShotLengthStats
 // Statistics over shot (scene segment) durations in a video, in frames.
 struct ShotLengthStats {
@@ -232,12 +234,10 @@ public:
   VideoMetrics getMetrics();
 };
 
-// Namespace: vidicant
-// Namespace containing convenience functions for video analysis.
+// Convenience functions for video analysis.
 //
-// This namespace provides standalone functions that mirror the VideoHandler
-// methods, allowing for easier use without creating handler objects.
-namespace vidicant {
+// These standalone functions mirror the VideoHandler methods, allowing for
+// direct use without manually constructing handler objects.
 
 // Convenience function to get video frame count.
 int getVideoFrameCount(const std::string &filename);
