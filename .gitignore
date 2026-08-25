@@ -38,3 +38,13 @@ venv/
 # Zig
 zig-out/
 .zig-cache/
+
+# Test Media & Fixtures
+test_data/*
+!test_data/.gitkeep
+tests/fixtures/downloads/
+benchmarks/data/
+*.tmp.mp4
+*.tmp.jpg
+*.tmp.png
+
