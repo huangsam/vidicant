@@ -1,4 +1,4 @@
-#include "controller.hpp"
+#include "vidicant/controller.hpp"
 #include "vidicant/image.hpp"
 #include "vidicant/video.hpp"
 #include <algorithm>

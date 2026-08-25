@@ -11,7 +11,8 @@ const opencv_libs = [_][]const u8{
 };
 
 const header_files = [_][]const u8{
-    "include/controller.hpp",
+    "include/vidicant/c_api.h",
+    "include/vidicant/controller.hpp",
     "include/vidicant/image.hpp",
     "include/vidicant/video.hpp",
 };

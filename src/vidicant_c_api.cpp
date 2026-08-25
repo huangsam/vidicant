@@ -1,7 +1,8 @@
 // vidicant_c_api.cpp
 // C-ABI wrapper for Vidicant media processor
 
-#include "controller.hpp"
+#include "vidicant/c_api.h"
+#include "vidicant/controller.hpp"
 #include <cstdlib>
 #include <cstring>
 

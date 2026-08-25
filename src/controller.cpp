@@ -5,7 +5,7 @@
 // media file processing, including file type detection
 // and analysis of images and videos.
 
-#include "controller.hpp"
+#include "vidicant/controller.hpp"
 #include "vidicant/image.hpp"
 #include "vidicant/video.hpp"
 #include <algorithm>

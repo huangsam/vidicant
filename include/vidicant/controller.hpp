@@ -1,37 +1,40 @@
-// controller.hpp
+// File: controller.hpp
 // Header file for the media processing controller.
 //
 // This file contains declarations for functions that handle
 // media file processing logic, including file type detection
 // and analysis of images and videos.
 
-#ifndef CONTROLLER_HPP
-#define CONTROLLER_HPP
+#ifndef VIDICANT_CONTROLLER_HPP
+#define VIDICANT_CONTROLLER_HPP
 
+#include <cstdint>
 #include <nlohmann/json.hpp>
 #include <string>
 
-// Function to determine if a file is an image based on extension
+// Function to determine if a file is an image based on extension or magic
+// bytes.
 bool isImageFile(const std::string &filename);
 
-// Function to determine if a file is a video based on extension
+// Function to determine if a file is a video based on extension, magic bytes,
+// or probe.
 bool isVideoFile(const std::string &filename);
 
-// Function to process an image file and return JSON result
+// Function to process an image file and return JSON result.
 nlohmann::json processImage(const std::string &filename,
                             const std::string &model_path = "",
                             const std::string &task = "quality", int top_k = 5,
                             float conf_threshold = 0.5f,
                             float nms_threshold = 0.4f);
 
-// Function to process an in-memory image buffer and return JSON result
+// Function to process an in-memory image buffer and return JSON result.
 nlohmann::json processImageBytes(const uint8_t *buffer, size_t len,
                                  const std::string &model_path = "",
                                  const std::string &task = "quality",
                                  int top_k = 5, float conf_threshold = 0.5f,
                                  float nms_threshold = 0.4f);
 
-// Function to process a video file and return JSON result
+// Function to process a video file and return JSON result.
 nlohmann::json processVideo(const std::string &filename);
 
-#endif // CONTROLLER_HPP
+#endif // VIDICANT_CONTROLLER_HPP

@@ -30,8 +30,8 @@ Vidicant is structured across three distinct layers:
 - **`ImageHandler` / `VideoHandler`**: High-level analysis classes executing algorithms (color extraction, edge detection, blur metrics, motion analysis).
 - **Public API**: Convenience functions under `vidicant::` namespace (`getImageDimensions`, `processImage`, `processVideo`).
 
-### 2. C-ABI Wrapper Layer (`src/vidicant_c_api.cpp`)
-To avoid ABI coupling and complex C++ binding tools, the native library exports clean `extern "C"` functions:
+### 2. C-ABI Wrapper Layer (`include/vidicant/c_api.h`, `src/vidicant_c_api.cpp`)
+To avoid ABI coupling and complex C++ binding tools, the native library exports clean `extern "C"` functions declared in `include/vidicant/c_api.h`:
 - `vidicant_process_image(const char* image_path)`: Analyzes image and returns a heap-allocated JSON string.
 - `vidicant_process_image_dnn(const char* image_path, const char* model_path, const char* task, int top_k, float conf_threshold, float nms_threshold)`: Runs heuristic + neural pipeline and returns a heap-allocated JSON string.
 - `vidicant_process_video(const char* video_path)`: Analyzes video and returns a heap-allocated JSON string.
