@@ -28,7 +28,7 @@ jobs:
 
       - name: Check C++ formatting
         run: |
-          find src test include \( -name '*.cpp' -o -name '*.hpp' \) | xargs clang-format --dry-run --Werror
+          find src test include \( -name '*.cpp' -o -name '*.hpp' -o -name '*.h' \) | xargs clang-format --dry-run --Werror
 
   build-and-test:
     name: Build (${{ matrix.os }}, ${{ matrix.python-version }})
@@ -37,7 +37,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
-        python-version: ["3.11", "3.12"]
+        python-version: ["3.11", "3.12", "3.13"]
 
     steps:
       - uses: actions/checkout@v4
@@ -49,6 +49,9 @@ jobs:
 
       - name: Verify Zig installation
         run: zig version
+
+      - name: Check build.zig formatting
+        run: zig fmt --check build.zig
 
       - name: Install Dependencies (Linux)
         if: runner.os == 'Linux'
