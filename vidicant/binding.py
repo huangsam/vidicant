@@ -72,6 +72,13 @@ _lib.vidicant_process_image_bytes.restype = ctypes.c_void_p
 _lib.vidicant_process_video.argtypes = [ctypes.c_char_p]
 _lib.vidicant_process_video.restype = ctypes.c_void_p
 
+_lib.vidicant_dedupe_directory.argtypes = [
+    ctypes.c_char_p,
+    ctypes.c_int,
+    ctypes.c_bool,
+]
+_lib.vidicant_dedupe_directory.restype = ctypes.c_void_p
+
 _lib.vidicant_free_string.argtypes = [ctypes.c_void_p]
 _lib.vidicant_free_string.restype = None
 
@@ -198,8 +205,34 @@ def process_video(filename: str) -> dict:
         _lib.vidicant_free_string(raw_ptr)
 
 
+def find_duplicates(
+    directory: str,
+    threshold: int = 5,
+    recursive: bool = True,
+) -> dict:
+    """Find duplicate and near-duplicate images in a directory using perceptual hashing.
+
+    Args:
+        directory: Path to the directory to scan.
+        threshold: Hamming distance threshold (default: 5).
+        recursive: Whether to scan subdirectories recursively (default: True).
+
+    Returns:
+        Dictionary containing deduplication clusters and statistics.
+    """
+    raw_ptr = _lib.vidicant_dedupe_directory(directory.encode("utf-8"), threshold, recursive)
+    if not raw_ptr:
+        raise ValueError(f"Failed to deduplicate directory: {directory}")
+    try:
+        s = ctypes.string_at(raw_ptr).decode("utf-8")
+        return json.loads(s)
+    finally:
+        _lib.vidicant_free_string(raw_ptr)
+
+
 __all__ = [
     "ensure_model",
+    "find_duplicates",
     "get_default_model_path",
     "is_image_file",
     "is_video_file",

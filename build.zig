@@ -26,9 +26,11 @@ const header_files = [_][]const u8{
     "include/vidicant/vidicant.hpp",
     "include/vidicant/c_api.h",
     "include/vidicant/types.hpp",
+    "include/vidicant/pipeline.hpp",
     "include/vidicant/controller.hpp",
     "include/vidicant/image.hpp",
     "include/vidicant/video.hpp",
+    "include/vidicant/core/dedupe.hpp",
     "include/vidicant/core/image_ops.hpp",
     "include/vidicant/core/video_ops.hpp",
     "include/vidicant/dnn/dnn_engine.hpp",
@@ -36,23 +38,25 @@ const header_files = [_][]const u8{
 };
 
 const lib_sources = [_][]const u8{
+    "src/core/dedupe.cpp",
     "src/core/image_ops.cpp",
     "src/core/video_ops.cpp",
     "src/dnn/dnn_engine.cpp",
     "src/io/file_detector.cpp",
     "src/image.cpp",
     "src/video.cpp",
-    "src/controller.cpp",
+    "src/pipeline.cpp",
     "src/vidicant_c_api.cpp",
 };
 
 const cli_sources = [_][]const u8{
+    "src/core/dedupe.cpp",
     "src/core/image_ops.cpp",
     "src/core/video_ops.cpp",
     "src/dnn/dnn_engine.cpp",
     "src/io/file_detector.cpp",
     "src/main.cpp",
-    "src/controller.cpp",
+    "src/pipeline.cpp",
     "src/image.cpp",
     "src/video.cpp",
 };

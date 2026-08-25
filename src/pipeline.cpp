@@ -1,11 +1,8 @@
-// controller.cpp
-// Implementation file for the media processing controller.
-//
-// This file contains the implementation of functions for
-// media file processing, including file type detection
-// and analysis of images and videos.
+// File: pipeline.cpp
+// Implementation of media processing pipelines and JSON serialization.
 
-#include "vidicant/controller.hpp"
+#include "vidicant/pipeline.hpp"
+#include "vidicant/core/dedupe.hpp"
 #include "vidicant/image.hpp"
 #include "vidicant/io/file_detector.hpp"
 #include "vidicant/video.hpp"
@@ -208,6 +205,13 @@ nlohmann::json processVideo(const std::filesystem::path &filename) {
   result["codec_fourcc"] = m.codec_fourcc;
 
   return result;
+}
+
+// Function to deduplicate a directory of images and return JSON result.
+nlohmann::json dedupeDirectory(const std::filesystem::path &dir, int threshold,
+                               bool recursive) {
+  core::DedupeResult res = core::dedupeDirectory(dir, threshold, recursive);
+  return core::formatDedupeJson(res);
 }
 
 } // namespace vidicant

@@ -11,6 +11,7 @@ if sys.version_info < (3, 11):  # noqa: UP036
 
 from .binding import (
     ensure_model,
+    find_duplicates,
     get_default_model_path,
     is_image_file,
     is_video_file,
@@ -22,6 +23,7 @@ from .binding import (
 __version__ = "0.1.0"
 __all__ = [
     "ensure_model",
+    "find_duplicates",
     "get_default_model_path",
     "is_image_file",
     "is_video_file",

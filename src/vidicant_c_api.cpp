@@ -2,7 +2,7 @@
 // C-ABI wrapper for Vidicant media processor
 
 #include "vidicant/c_api.h"
-#include "vidicant/controller.hpp"
+#include "vidicant/pipeline.hpp"
 #include <cstdlib>
 #include <cstring>
 
@@ -96,6 +96,22 @@ const char *vidicant_process_video(const char *filename) {
     return nullptr;
   try {
     nlohmann::json res = vidicant::processVideo(std::string(filename));
+    std::string s = res.dump();
+    char *out = static_cast<char *>(std::malloc(s.size() + 1));
+    std::memcpy(out, s.c_str(), s.size() + 1);
+    return out;
+  } catch (...) {
+    return nullptr;
+  }
+}
+
+const char *vidicant_dedupe_directory(const char *dir, int threshold,
+                                      bool recursive) {
+  if (!dir)
+    return nullptr;
+  try {
+    nlohmann::json res =
+        vidicant::dedupeDirectory(std::string(dir), threshold, recursive);
     std::string s = res.dump();
     char *out = static_cast<char *>(std::malloc(s.size() + 1));
     std::memcpy(out, s.c_str(), s.size() + 1);

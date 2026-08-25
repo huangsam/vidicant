@@ -1,13 +1,12 @@
-#include "vidicant/controller.hpp"
+#include "vidicant/core/dedupe.hpp"
 #include "vidicant/image.hpp"
+#include "vidicant/pipeline.hpp"
 #include "vidicant/video.hpp"
 #include <algorithm>
-#include <bitset>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
-#include <map>
 #include <nlohmann/json.hpp>
 #include <numeric>
 #include <sstream>
@@ -16,37 +15,6 @@
 
 namespace fs = std::filesystem;
 using namespace vidicant;
-
-static int hammingDistance(uint64_t a, uint64_t b) {
-  return static_cast<int>(std::bitset<64>(a ^ b).count());
-}
-
-struct DisjointSet {
-  std::vector<int> parent;
-  std::vector<int> rank;
-
-  explicit DisjointSet(int n) : parent(n), rank(n, 0) {
-    std::iota(parent.begin(), parent.end(), 0);
-  }
-
-  int find(int i) {
-    if (parent[i] == i)
-      return i;
-    return parent[i] = find(parent[i]);
-  }
-
-  void unite(int i, int j) {
-    int root_i = find(i);
-    int root_j = find(j);
-    if (root_i != root_j) {
-      if (rank[root_i] < rank[root_j])
-        std::swap(root_i, root_j);
-      parent[root_j] = root_i;
-      if (rank[root_i] == rank[root_j])
-        rank[root_i]++;
-    }
-  }
-};
 
 static std::string escapeCsv(const std::string &str) {
   if (str.find(',') != std::string::npos ||
@@ -94,62 +62,8 @@ static int runDedupe(int argc, char *argv[]) {
     return 1;
   }
 
-  std::vector<std::string> imageFiles;
-  try {
-    for (const auto &entry : fs::recursive_directory_iterator(
-             targetDir, fs::directory_options::skip_permission_denied)) {
-      if (entry.is_regular_file() && isImageFile(entry.path().string())) {
-        imageFiles.push_back(entry.path().string());
-      }
-    }
-  } catch (const std::exception &e) {
-    std::cerr << "Error scanning directory: " << e.what() << std::endl;
-    return 1;
-  }
-
-  std::sort(imageFiles.begin(), imageFiles.end());
-
-  struct ImageHash {
-    std::string path;
-    uint64_t hash;
-  };
-
-  std::vector<ImageHash> hashes;
-  hashes.reserve(imageFiles.size());
-
-  for (const auto &img : imageFiles) {
-    uint64_t h = vidicant::getImagePerceptualHash(img);
-    hashes.push_back({img, h});
-  }
-
-  int n = static_cast<int>(hashes.size());
-  DisjointSet dsu(n);
-
-  for (int i = 0; i < n; ++i) {
-    for (int j = i + 1; j < n; ++j) {
-      int dist = hammingDistance(hashes[i].hash, hashes[j].hash);
-      if (dist <= threshold) {
-        dsu.unite(i, j);
-      }
-    }
-  }
-
-  std::map<int, std::vector<int>> clustersMap;
-  for (int i = 0; i < n; ++i) {
-    clustersMap[dsu.find(i)].push_back(i);
-  }
-
-  struct DuplicateCluster {
-    int lead_index;
-    std::vector<int> members;
-  };
-
-  std::vector<DuplicateCluster> duplicateClusters;
-  for (auto const &[root, members] : clustersMap) {
-    if (members.size() >= 2) {
-      duplicateClusters.push_back({root, members});
-    }
-  }
+  core::DedupeResult dedupeRes =
+      core::dedupeDirectory(targetDir, threshold, true);
 
   std::ostream *outStream = &std::cout;
   std::ofstream fileStream;
@@ -164,85 +78,51 @@ static int runDedupe(int argc, char *argv[]) {
   }
 
   if (format == "json") {
-    nlohmann::json j;
-    j["threshold"] = threshold;
-    j["total_images"] = n;
-    j["clusters_count"] = duplicateClusters.size();
-    j["duplicate_clusters"] = nlohmann::json::array();
-
-    int clusterId = 1;
-    for (const auto &cl : duplicateClusters) {
-      nlohmann::json clJson;
-      clJson["cluster_id"] = clusterId++;
-      clJson["count"] = cl.members.size();
-      clJson["lead_image"] = hashes[cl.lead_index].path;
-      clJson["files"] = nlohmann::json::array();
-
-      for (int idx : cl.members) {
-        int dist =
-            hammingDistance(hashes[cl.lead_index].hash, hashes[idx].hash);
-        clJson["files"].push_back({{"path", hashes[idx].path},
-                                   {"perceptual_hash", hashes[idx].hash},
-                                   {"distance_to_lead", dist}});
-      }
-      j["duplicate_clusters"].push_back(clJson);
-    }
+    nlohmann::json j = core::formatDedupeJson(dedupeRes);
     *outStream << j.dump(2) << std::endl;
   } else if (format == "jsonl") {
-    int clusterId = 1;
-    for (const auto &cl : duplicateClusters) {
+    for (const auto &cl : dedupeRes.clusters) {
       nlohmann::json clJson;
-      clJson["cluster_id"] = clusterId++;
+      clJson["cluster_id"] = cl.cluster_id;
       clJson["count"] = cl.members.size();
-      clJson["lead_image"] = hashes[cl.lead_index].path;
+      clJson["lead_image"] = cl.lead_path;
       clJson["files"] = nlohmann::json::array();
 
-      for (int idx : cl.members) {
-        int dist =
-            hammingDistance(hashes[cl.lead_index].hash, hashes[idx].hash);
-        clJson["files"].push_back({{"path", hashes[idx].path},
-                                   {"perceptual_hash", hashes[idx].hash},
-                                   {"distance_to_lead", dist}});
+      for (const auto &m : cl.members) {
+        clJson["files"].push_back({{"path", m.path},
+                                   {"perceptual_hash", m.hash},
+                                   {"distance_to_lead", m.distance_to_lead}});
       }
       *outStream << clJson.dump() << std::endl;
     }
   } else if (format == "csv") {
     *outStream << "cluster_id,path,perceptual_hash,distance_to_lead,is_lead\n";
-    int clusterId = 1;
-    for (const auto &cl : duplicateClusters) {
-      for (int idx : cl.members) {
-        int dist =
-            hammingDistance(hashes[cl.lead_index].hash, hashes[idx].hash);
-        bool isLead = (idx == cl.lead_index);
-        *outStream << clusterId << "," << escapeCsv(hashes[idx].path) << ","
-                   << hashes[idx].hash << "," << dist << ","
-                   << (isLead ? "true" : "false") << "\n";
+    for (const auto &cl : dedupeRes.clusters) {
+      for (const auto &m : cl.members) {
+        *outStream << cl.cluster_id << "," << escapeCsv(m.path) << "," << m.hash
+                   << "," << m.distance_to_lead << ","
+                   << (m.is_lead ? "true" : "false") << "\n";
       }
-      clusterId++;
     }
   } else {
     // Human readable text
-    *outStream << "Scanned " << n << " images in '" << targetDir << "'."
-               << std::endl;
-    *outStream << "Found " << duplicateClusters.size()
+    *outStream << "Scanned " << dedupeRes.total_images << " images in '"
+               << targetDir << "'." << std::endl;
+    *outStream << "Found " << dedupeRes.clusters.size()
                << " duplicate/near-duplicate cluster(s) (threshold <= "
                << threshold << "):" << std::endl
                << std::endl;
 
-    int clusterId = 1;
-    for (const auto &cl : duplicateClusters) {
-      *outStream << "Cluster #" << clusterId++ << " (" << cl.members.size()
+    for (const auto &cl : dedupeRes.clusters) {
+      *outStream << "Cluster #" << cl.cluster_id << " (" << cl.members.size()
                  << " files):" << std::endl;
-      for (int idx : cl.members) {
-        int dist =
-            hammingDistance(hashes[cl.lead_index].hash, hashes[idx].hash);
-        if (idx == cl.lead_index) {
-          *outStream << "  - [LEAD] " << hashes[idx].path
-                     << " (hash: " << hashes[idx].hash << ")" << std::endl;
+      for (const auto &m : cl.members) {
+        if (m.is_lead) {
+          *outStream << "  - [LEAD] " << m.path << " (hash: " << m.hash << ")"
+                     << std::endl;
         } else {
-          *outStream << "  - " << hashes[idx].path
-                     << " (hash: " << hashes[idx].hash << ", dist: " << dist
-                     << ")" << std::endl;
+          *outStream << "  - " << m.path << " (hash: " << m.hash
+                     << ", dist: " << m.distance_to_lead << ")" << std::endl;
         }
       }
       *outStream << std::endl;

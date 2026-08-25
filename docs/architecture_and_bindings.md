@@ -20,7 +20,7 @@ Vidicant is structured across three distinct layers:
 ┌──────────────────────────────▼──────────────────────────────┐
 │                       Core C++ Library                      │
 │   (include/vidicant/vidicant.hpp, src/core/, src/dnn/,      │
-│     src/io/, src/image.cpp, src/video.cpp, src/controller)  │
+│     src/io/, src/image.cpp, src/video.cpp, src/pipeline)    │
 │                     Linked against OpenCV                   │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -38,6 +38,7 @@ Vidicant is structured across three distinct layers:
 - **Pure Algorithms (`src/core/`)**:
   - `image_ops.hpp / .cpp`: Image processing kernels (blur, contrast, GLCM texture, dHash, white balance, symmetry).
   - `video_ops.hpp / .cpp`: Video processing kernels (optical flow, scene detection, motion score, shot statistics).
+  - `dedupe.hpp / .cpp`: Perceptual hash deduplication and DisjointSet union-find clustering.
 - **Neural Engine Subsystem (`src/dnn/`)**:
   - `dnn_engine.hpp / .cpp`: Encapsulates OpenCV DNN execution (`cv::dnn::readNetFromONNX`), tensor preprocessing, Softmax, NMS, and feature extraction.
 - **Media I/O & File Detection (`src/io/`)**:
@@ -50,7 +51,7 @@ Vidicant is structured across three distinct layers:
 - **High-Level Functional API**:
   - `vidicant::getImageMetrics(const std::filesystem::path &, const ImageAnalysisOptions &) -> std::optional<ImageMetrics>`
   - `vidicant::getVideoMetrics(const std::filesystem::path &, const VideoAnalysisOptions &) -> std::optional<VideoMetrics>`
-  - `vidicant::processImage`, `vidicant::processImageBytes`, `vidicant::processVideo` (in `controller.hpp`).
+  - `vidicant::processImage`, `vidicant::processImageBytes`, `vidicant::processVideo`, `vidicant::dedupeDirectory` (in `pipeline.hpp`).
 
 ### 2. C-ABI Wrapper Layer (`include/vidicant/c_api.h`, `src/vidicant_c_api.cpp`)
 To ensure long-term stability and eliminate CPython ABI coupling, the native library exports `extern "C"` functions returning JSON strings:

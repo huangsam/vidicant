@@ -563,6 +563,33 @@ def test_cli_deduplication():
     print()
 
 
+def test_python_deduplication():
+    """Test Python find_duplicates API for near-duplicate image clustering."""
+    print("=" * 60)
+    print("TEST: Python API Near-Duplicate Image Clustering (find_duplicates)")
+    print("=" * 60)
+
+    temp_dir = tempfile.mkdtemp(prefix="vidicant_py_dedupe_test_")
+    try:
+        # Create copies in temporary test directory
+        img_orig = os.path.join(temp_dir, "img_orig.jpg")
+        img_copy1 = os.path.join(temp_dir, "img_copy1.jpg")
+        shutil.copyfile("examples/sample.jpg", img_orig)
+        shutil.copyfile("examples/sample.jpg", img_copy1)
+
+        res = vidicant.find_duplicates(temp_dir, threshold=5)
+        assert isinstance(res, dict)
+        assert res["total_images"] == 2
+        assert res["clusters_count"] == 1
+        assert len(res["duplicate_clusters"]) == 1
+        assert res["duplicate_clusters"][0]["count"] == 2
+        print(f"✓ Python find_duplicates verified: {res['clusters_count']} cluster found")
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+    print()
+
+
 def test_python_version_compatibility():
     """Test that current environment is Python 3.11+ and version requirements are enforced."""
     print("=" * 60)
@@ -594,6 +621,7 @@ def main():
         test_generic_embeddings()
         test_cli_streaming_formats()
         test_cli_deduplication()
+        test_python_deduplication()
 
         print("=" * 60)
         print("✓ ALL TESTS PASSED!")

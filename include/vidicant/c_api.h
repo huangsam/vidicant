@@ -70,7 +70,13 @@ VIDICANT_API const char *vidicant_process_image_bytes(
 /// vidicant_free_string().
 VIDICANT_API const char *vidicant_process_video(const char *filename);
 
-/// Frees a string allocated by any `vidicant_process_*` function.
+/// Clusters duplicate/near-duplicate images in a directory via perceptual
+/// hashing. Caller must free the returned string with vidicant_free_string().
+VIDICANT_API const char *
+vidicant_dedupe_directory(const char *dir, int threshold, bool recursive);
+
+/// Frees a string allocated by any `vidicant_process_*` or `vidicant_dedupe_*`
+/// function.
 VIDICANT_API void vidicant_free_string(const char *str);
 
 #ifdef __cplusplus
