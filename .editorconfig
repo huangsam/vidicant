@@ -1,12 +1,15 @@
 root = true
 
-[*.{cpp,hpp,yml}]
+[*]
+end_of_line = lf
+charset = utf-8
+trim_trailing_whitespace = true
+insert_final_newline = true
+
+[*.{cpp,hpp,h,c,yml,yaml}]
 indent_style = space
 indent_size = 2
-insert_final_newline = true
-remove_trailing_whitespace = true
 
-[*.{md,zig}]
+[*.{py,zig,md}]
+indent_style = space
 indent_size = 4
-insert_final_newline = true
-remove_trailing_whitespace = true

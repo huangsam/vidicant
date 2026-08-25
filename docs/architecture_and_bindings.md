@@ -9,65 +9,92 @@ Vidicant is structured across three distinct layers:
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                      Python Client Layer                     │
-│                  (vidicant/ - pure ctypes)                  │
+│           (vidicant/ - pure ctypes, zero pip deps)          │
 └──────────────────────────────┬──────────────────────────────┘
                                │ C-ABI JSON Interface
 ┌──────────────────────────────▼──────────────────────────────┐
 │                      C-ABI Wrapper Layer                    │
-│                  (src/vidicant_c_api.cpp)                   │
+│      (include/vidicant/c_api.h, src/vidicant_c_api.cpp)     │
 └──────────────────────────────┬──────────────────────────────┘
-                               │ Direct C++ API
+                               │ Modern C++17 API
 ┌──────────────────────────────▼──────────────────────────────┐
 │                       Core C++ Library                      │
-│        (src/core/, src/dnn/, src/io/, image.cpp, video.cpp) │
+│   (include/vidicant/vidicant.hpp, src/core/, src/dnn/,      │
+│     src/io/, src/image.cpp, src/video.cpp, src/controller)  │
 │                     Linked against OpenCV                   │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### 1. Core C++ Library (`src/`, `include/`)
-- **`vidicant::types` (`include/vidicant/types.hpp`)**: Core metric and bounding box structs (`ImageMetrics`, `VideoMetrics`, `TextureFeatures`, `BoundingBox`, etc.).
-- **`vidicant::core` (`src/core/`)**: Pure computer vision algorithms (`image_ops.hpp`, `video_ops.hpp`) operating directly on `cv::Mat` frames.
-- **`vidicant::dnn` (`src/dnn/`)**: Neural inference subsystem (`dnn_engine.hpp`) encapsulating OpenCV DNN execution and model task decoding.
-- **`vidicant::io` (`src/io/`)**: Media format detection (`file_detector.hpp`) via extension and magic byte inspection.
-- **`IImageLoader` / `IVideoLoader`**: Abstract interfaces enabling custom media loading strategies.
-- **`OpenCVImageLoader` / `OpenCVVideoLoader`**: Concrete OpenCV-backed implementations.
-- **`ImageHandler` / `VideoHandler`**: High-level coordinators delegating to `core` and `dnn`.
-- **Public API**: Convenience functions under `vidicant::` namespace (`getImageDimensions`, `processImage`, `processVideo`).
+---
+
+## Architectural Layers
+
+### 1. Core C++ Library (`include/`, `src/`)
+- **Top-Level Umbrella Header (`include/vidicant/vidicant.hpp`)**: Single include providing access to the entire C++ API.
+- **Data Models & Types (`include/vidicant/types.hpp`)**:
+  - `ImageMetrics` & `VideoMetrics`: Comprehensive analysis result aggregates.
+  - `ImageAnalysisOptions` & `VideoAnalysisOptions`: Options structs for configuring thresholds, ML models, and sampling.
+  - `TextureFeatures`, `BoundingBox`, `DetectedObject`, `ClassificationLabel`, `ShotLengthStats`.
+- **Pure Algorithms (`src/core/`)**:
+  - `image_ops.hpp / .cpp`: Image processing kernels (blur, contrast, GLCM texture, dHash, white balance, symmetry).
+  - `video_ops.hpp / .cpp`: Video processing kernels (optical flow, scene detection, motion score, shot statistics).
+- **Neural Engine Subsystem (`src/dnn/`)**:
+  - `dnn_engine.hpp / .cpp`: Encapsulates OpenCV DNN execution (`cv::dnn::readNetFromONNX`), tensor preprocessing, Softmax, NMS, and feature extraction.
+- **Media I/O & File Detection (`src/io/`)**:
+  - `file_detector.hpp / .cpp`: Fast format identification via file extensions and magic byte signatures.
+- **Loader Abstractions (`include/vidicant/image.hpp`, `include/vidicant/video.hpp`)**:
+  - `IImageLoader` / `IVideoLoader`: Abstract interfaces for custom loading strategies.
+  - `OpenCVImageLoader` / `OpenCVVideoLoader`: Concrete OpenCV-backed implementations.
+  - `MemoryImageLoader`: In-memory decoding via `cv::imdecode`.
+  - `ImageHandler` / `VideoHandler`: High-level coordinators with instance-level caching.
+- **High-Level Functional API**:
+  - `vidicant::getImageMetrics(const std::filesystem::path &, const ImageAnalysisOptions &) -> std::optional<ImageMetrics>`
+  - `vidicant::getVideoMetrics(const std::filesystem::path &, const VideoAnalysisOptions &) -> std::optional<VideoMetrics>`
+  - `vidicant::processImage`, `vidicant::processImageBytes`, `vidicant::processVideo` (in `controller.hpp`).
 
 ### 2. C-ABI Wrapper Layer (`include/vidicant/c_api.h`, `src/vidicant_c_api.cpp`)
-To avoid ABI coupling and complex C++ binding tools, the native library exports clean `extern "C"` functions declared in `include/vidicant/c_api.h`:
-- `vidicant_process_image(const char* image_path)`: Analyzes image and returns a heap-allocated JSON string.
-- `vidicant_process_image_dnn(const char* image_path, const char* model_path, const char* task, int top_k, float conf_threshold, float nms_threshold)`: Runs heuristic + neural pipeline and returns a heap-allocated JSON string.
-- `vidicant_process_video(const char* video_path)`: Analyzes video and returns a heap-allocated JSON string.
-- `vidicant_free_string(const char* ptr)`: Safely deallocates strings allocated by the C++ runtime.
+To ensure long-term stability and eliminate CPython ABI coupling, the native library exports `extern "C"` functions returning JSON strings:
+- `vidicant_is_image_file(const char *filename) -> bool`
+- `vidicant_is_video_file(const char *filename) -> bool`
+- `vidicant_process_image(const char *filename) -> const char *`
+- `vidicant_process_image_ml(const char *filename, const char *model_path) -> const char *`
+- `vidicant_process_image_dnn(const char *filename, const char *model_path, const char *task, int top_k, float conf_threshold, float nms_threshold) -> const char *`
+- `vidicant_process_image_bytes(const uint8_t *buffer, size_t len, const char *model_path, const char *task, int top_k, float conf_threshold, float nms_threshold) -> const char *`
+- `vidicant_process_video(const char *filename) -> const char *`
+- `vidicant_free_string(const char *str) -> void`: Safely deallocates strings allocated by the native runtime.
 
 ### 3. Python Driver (`vidicant/`)
-- Pure Python using the built-in `ctypes` module.
-- Zero third-party dependencies (no numpy/pybind11 required at install time).
-- Locates `libvidicant.dylib` / `.so` relative to package location or build output.
-- Transparent on-demand model download and cache manager (`vidicant/models.py`) targeting `~/.cache/vidicant/models/`.
-- Automatically handles serialization: C++ metrics JSON $\rightarrow$ Python `dict`.
+- Built exclusively with Python standard library (`ctypes`, `json`, `pathlib`, `urllib`).
+- Zero external runtime dependencies (no `numpy`, `pybind11`, or `cython` needed at runtime).
+- Dynamic loader discovers `libvidicant.dylib` (macOS), `libvidicant.so` (Linux), or `vidicant.dll` (Windows) across build and package directories.
+- Automatic model caching and on-demand download manager (`vidicant/models.py`) targeting `~/.cache/vidicant/models/`.
 
 ### 4. Neural Engine (`opencv_dnn`)
-- Embedded inference using OpenCV's built-in `cv::dnn::readNetFromONNX`.
-- Supports 4 neural tasks: Quality scoring (NIMA distribution & technical score), Semantic Classification (Softmax + Top-K), Object & Face Detection (`cv::dnn::NMSBoxes`), and Generic Tensor Embeddings.
-- Thread-safe memory caching of loaded network graphs (`cv::dnn::Net`).
-- Zero extra external C++ libraries required.
+- Direct ONNX inference via OpenCV's built-in `cv::dnn::Net`.
+- Supports 4 task modes:
+  1. `quality`: Aesthetic rating & technical quality assessment (NIMA-style distribution).
+  2. `classify`: Softmax classification with Top-K label extraction.
+  3. `detect`: Object and face detection bounding boxes with Non-Maximum Suppression (`cv::dnn::NMSBoxes`).
+  4. `embed`: Generic high-dimensional feature vector extraction.
+- Graph caching to eliminate repeated model load overhead.
+
+---
 
 ## Key Technical Decisions
 
 ### Zig 0.16 Build System (`build.zig`)
-- Replaces CMake with a unified build orchestrator and compiler driver.
-- Hermetic, fast builds linking OpenCV natively.
-- Builds both the native shared library (`libvidicant`) and the CLI tool (`vidicant_cli`).
+- Unified build orchestrator and compiler driver for C++17 codebase.
+- Replaces CMake for standard build and test flows with clean multi-target commands:
+  - `zig build`: Builds shared library and CLI.
+  - `zig build test`: Runs native C++ GTest suite and Python e2e suite.
+  - `zig build -Dinstall-to-pkg`: Stages library for wheel packaging.
+
+### Platform Support
+- **macOS**: Apple Silicon (`aarch64`) & Intel (`x86_64`)
+- **Linux**: `x86_64` & `aarch64`
+- **Windows**: Windows Subsystem for Linux (**WSL2**) recommended for zero-friction development.
 
 ### C-ABI & `ctypes` vs `pybind11`
-- **Stable ABI**: `ctypes` works across all Python 3.11+ minor versions without recompiling wheels for every CPython ABI tag (`cp311`, `cp312`, `cp313`, `cp314`).
-- **Zero Build Dependencies**: Users do not need a C++ compiler or wheel building tools in Python environments.
-- **JSON Serialization**: Clean boundary between C++ structs and Python dictionaries.
-
-## Future Enhancements
-
-- **GPU Acceleration**: Leverage OpenCV CUDA backends for high-throughput video processing.
-- **Streaming Support**: Real-time webcam and RTSP stream analysis.
-- **Direct Buffer Passing**: Optional zero-copy frame buffer sharing via numpy arrays.
+- **Universal ABI**: `ctypes` avoids compiling separate CPython wheels for every Python minor version (`cp311`, `cp312`, `cp313`, `cp314`).
+- **Zero Build Friction**: End users don't need a C++ compiler installed in their Python environment.
+- **Isolated Memory Model**: Clear allocation ownership using `vidicant_free_string`.

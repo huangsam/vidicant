@@ -6,17 +6,28 @@ Vidicant is a fast, cross-platform media analysis library combining high-perform
 
 ## Installation & Requirements
 
+### Supported Platforms
+- **macOS**: Apple Silicon (`aarch64`) & Intel (`x86_64`)
+- **Linux**: `x86_64` & `aarch64` (Ubuntu, Debian, Fedora, Arch, etc.)
+- **Windows**: Seamless development and execution via **WSL2** (Windows Subsystem for Linux)
+
 ### Requirements
 - **Python**: 3.11+
 - **Python Dependencies**: **Zero runtime pip dependencies** (uses pure standard library `ctypes`, `json`, `pathlib`, `urllib`).
-- **Native Runtime**: Pre-built via Zig (`zig build`) or system OpenCV package.
+- **Native Runtime**: Pre-built via Zig (`zig build`) or system OpenCV package (`libopencv-dev` / Homebrew `opencv`).
 
 ### Build & Install
 ```bash
 # 1. Build native shared library & CLI
 zig build
 
-# 2. Use directly or install locally
+# 2. Run full test suite (native C++ unit tests & Python e2e)
+zig build test
+
+# 3. Stage shared library into vidicant/ for local packaging or distribution
+zig build -Dinstall-to-pkg
+
+# 4. Use directly or install locally
 PYTHONPATH=. python3 -c "import vidicant; print(vidicant.__file__)"
 pip install . --break-system-packages
 ```
@@ -55,7 +66,19 @@ res_emb = vidicant.process_image("photo.jpg", enable_ml=True, task="embed")
 print(f"Embedding ({len(res_emb['embedding'])} dims):", res_emb["embedding"])
 ```
 
-### 3. Video Analysis
+### 3. In-Memory Byte Buffer Processing
+```python
+import vidicant
+
+# Decode and analyze directly from raw memory bytes without writing to disk
+with open("photo.jpg", "rb") as f:
+    raw_data = f.read()
+
+metrics = vidicant.process_image_bytes(raw_data)
+print(f"Decoded: {metrics['width']}x{metrics['height']}, Blur: {metrics['blur_score']:.2f}")
+```
+
+### 4. Video Analysis
 ```python
 import vidicant
 
@@ -71,11 +94,11 @@ print(f"Best Thumbnail Frame: #{video['best_thumbnail_frame']}")
 
 ### Image Processing
 
-#### `process_image(filename, enable_ml=False, task="quality", model_path=None, top_k=5, conf_threshold=0.5, nms_threshold=0.4) -> dict`
+#### `process_image(filename: str, enable_ml: bool = False, task: str = "quality", model_path: str | None = None, top_k: int = 5, conf_threshold: float = 0.5, nms_threshold: float = 0.4) -> dict`
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `filename` | `str` | *required* | Path to image file (`.jpg`, `.png`, `.webp`, `.bmp`, `.tiff`, etc.). |
+| `filename` | `str` | *required* | Path to image file (`.jpg`, `.jpeg`, `.png`, `.webp`, `.bmp`, `.tiff`, etc.). |
 | `enable_ml` | `bool` | `False` | Enables ONNX neural inference if `True`. |
 | `task` | `str` | `"quality"` | DNN task mode: `"quality"`, `"classify"`, `"detect"`, `"embed"`, or `"auto"`. |
 | `model_path` | `str \| None` | `None` | Custom ONNX model path or URL. Defaults to cached task model. |
@@ -128,7 +151,7 @@ print(f"Best Thumbnail Frame: #{video['best_thumbnail_frame']}")
 
 ---
 
-#### `process_image_bytes(data, enable_ml=False, task="quality", model_path=None, top_k=5, conf_threshold=0.5, nms_threshold=0.4) -> dict`
+#### `process_image_bytes(data: bytes | bytearray | memoryview, enable_ml: bool = False, task: str = "quality", model_path: str | None = None, top_k: int = 5, conf_threshold: float = 0.5, nms_threshold: float = 0.4) -> dict`
 
 Processes in-memory raw image bytes (`bytes`, `bytearray`, or `memoryview`) via `cv::imdecode` without writing temporary files to disk. Ideal for streaming cloud workers (AWS Lambda, Celery, S3 streaming).
 
@@ -150,27 +173,52 @@ print(f"Decoded: {metrics['width']}x{metrics['height']}, Blur: {metrics['blur_sc
 ```json
 {
   "filename": "clip.mp4",
+  "first_frame_extracted": true,
+  "first_frame_info": {
+    "width": 1920,
+    "height": 1080,
+    "channels": 3
+  },
+  "first_frame_saved": true,
+  "first_frame_path": "clip_first_frame.jpg",
   "frame_count": 300,
   "fps": 30.0,
-  "duration_seconds": 10.0,
   "width": 1920,
   "height": 1080,
+  "duration_seconds": 10.0,
   "average_brightness": 115.4,
   "is_grayscale": false,
   "motion_score": 3.82,
-  "optical_flow_magnitude": 2.45,
   "dominant_colors": [[120, 140, 160], [40, 50, 60]],
   "scene_changes": [45, 120, 210],
-  "shot_length_stats": {"mean": 75.0, "stddev": 32.1, "min": 45, "max": 120, "count": 3},
   "frame_rate_stability": 0.002,
   "color_consistency": 1.15,
-  "flicker_score": 0.04,
+  "optical_flow_magnitude": 2.45,
   "has_audio_track": true,
-  "codec_fourcc": "avc1",
+  "shot_length_stats": {
+    "mean": 75.0,
+    "stddev": 32.1,
+    "min": 45.0,
+    "max": 120.0,
+    "count": 3
+  },
+  "flicker_score": 0.04,
   "best_thumbnail_frame": 85,
-  "first_frame_extracted": true,
-  "first_frame_path": "clip_first_frame.jpg"
+  "temporal_brightness_curve": [114.2, 115.1, 115.8, ...],
+  "codec_fourcc": "avc1"
 }
+```
+
+---
+
+### File Type Detection
+
+```python
+import vidicant
+
+# Extension & magic byte inspection
+is_img = vidicant.is_image_file("sample.png")  # True
+is_vid = vidicant.is_video_file("sample.mp4")  # True
 ```
 
 ---
@@ -180,10 +228,10 @@ print(f"Decoded: {metrics['width']}x{metrics['height']}, Blur: {metrics['blur_sc
 ```python
 import vidicant
 
-# Get cache path for default task model (~/.cache/vidicant/models/)
+# Get local cache path for task model (~/.cache/vidicant/models/)
 path = vidicant.get_default_model_path(task="classify")
 
-# Ensure model exists locally; downloads to cache if given URL or default
+# Ensure model exists locally; downloads to cache if given URL or default task model
 local_path = vidicant.ensure_model("https://example.com/model.onnx")
 ```
 
@@ -194,10 +242,10 @@ local_path = vidicant.ensure_model("https://example.com/model.onnx")
 ### Batch Media Processing
 
 ```bash
-# Basic image & video processing (JSON output)
+# Basic image & video processing (JSON output with positional arguments)
 ./zig-out/bin/vidicant_cli photo.jpg clip.mp4 -o results.json
 
-# Streaming JSON Lines format (.jsonl)
+# Streaming JSON Lines format (.jsonl) across a directory
 ./zig-out/bin/vidicant_cli ./dataset/ --format jsonl -o dataset_metrics.jsonl
 
 # Streaming Tabular CSV format (.csv)
@@ -218,7 +266,7 @@ local_path = vidicant.ensure_model("https://example.com/model.onnx")
 Cluster images in a directory using Hamming distance on 64-bit `dHash` perceptual hashes:
 
 ```bash
-# Human-readable summary
+# Human-readable summary output
 ./zig-out/bin/vidicant_cli dedupe ./photos/ --threshold 5
 
 # JSON output with cluster groupings
@@ -236,11 +284,17 @@ Cluster images in a directory using Hamming distance on 64-bit `dHash` perceptua
 # Build native shared library & CLI
 zig build
 
+# Run full test suite (native C++ GTest unit tests & Python e2e)
+zig build test
+
+# Run native C++ unit tests only
+zig build test-native
+
+# Run Python e2e tests only
+zig build test-e2e
+
 # Stage shared library into vidicant/ for wheel packaging
 zig build -Dinstall-to-pkg
-
-# Run native test suite through Zig
-zig build test
 ```
 
 ---
@@ -249,6 +303,8 @@ zig build test
 
 | Issue | Resolution |
 |-------|------------|
-| Library not found | Run `zig build` to generate `libvidicant` in `zig-out/lib/`. |
-| Missing OpenCV headers | macOS: `brew install opencv`; Linux: `apt install libopencv-dev`. |
+| Library not found (`libvidicant`) | Run `zig build` to generate `libvidicant` in `zig-out/lib/` or `zig build -Dinstall-to-pkg`. |
+| Missing OpenCV headers | macOS: `brew install opencv`; Linux: `sudo apt install libopencv-dev`. |
+| Missing GTest/GMock headers | macOS: `brew install googletest`; Linux: `sudo apt install libgtest-dev libgmock-dev`. |
 | First-time ONNX download | `ensure_model()` caches models in `~/.cache/vidicant/models/`. Set `VIDICANT_MODEL_PATH` to override. |
+| Windows native compilation | Use **WSL2** (Ubuntu recommended) with standard Linux build steps. |
