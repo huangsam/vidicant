@@ -35,12 +35,12 @@ Immediate wins to enhance throughput and unlock cloud microservices with zero di
 
 Optimizations and automation tools for processing large video collections efficiently.
 
-- [ ] **Video Frame Sampling Stride (`--stride` / `--sample-rate`)**
+- [x] **Video Frame Sampling Stride (`--stride` / `--sample-rate`)**
     - Allow skipping frames during video analysis (e.g. sample 1 frame per second or every $N$ frames) rather than decoding all consecutive frames.
     - Achieve a 30x–50x speedup when computing motion scores and scene cuts on long high-resolution videos.
-- [ ] **Scene Cut Thumbnail Auto-Export (`--export-scenes`)**
+- [x] **Scene Cut Thumbnail Auto-Export (`--export-scenes`)**
     - Automatically extract and save the sharpest, highest-quality thumbnail for each detected scene change to an output directory.
-- [ ] **Quality Filter Presets in CLI (`--filter`)**
+- [x] **Quality Filter Presets in CLI (`--filter`)**
     - Provide declarative filter expressions to quickly isolate clean assets:
     ```bash
     vidicant_cli ./raw_dataset/ --filter "blur_score > 60 and contrast_ratio > 0.2 and width >= 512" -o clean_manifest.txt

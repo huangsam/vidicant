@@ -37,6 +37,12 @@ cv::Mat OpenCVVideoLoader::readFrame() {
   return frame;
 }
 
+bool OpenCVVideoLoader::seekFrame(int frameIndex) {
+  return cap_.set(cv::CAP_PROP_POS_FRAMES, frameIndex);
+}
+
+bool OpenCVVideoLoader::grabFrame() { return cap_.grab(); }
+
 double OpenCVVideoLoader::getProperty(int propId) { return cap_.get(propId); }
 
 VideoHandler::VideoHandler(std::unique_ptr<IVideoLoader> loader)
@@ -123,10 +129,11 @@ bool VideoHandler::saveFirstFrameAsImage(
   return cv::imwrite(imagePath.string(), frame);
 }
 
-double VideoHandler::getMotionScore() {
+double VideoHandler::getMotionScore(int stride) {
   if (!loader_ || (!filename_.empty() && !loader_->open(filename_)))
     return -1.0;
 
+  stride = std::max(1, stride);
   cv::Mat prevFrame = loader_->readFrame();
   if (prevFrame.empty())
     return 0.0;
@@ -139,8 +146,23 @@ double VideoHandler::getMotionScore() {
 
   double totalMotion = 0.0;
   int frameCount = 1;
-  cv::Mat currFrame = loader_->readFrame();
-  while (!currFrame.empty() && frameCount < 50) {
+  int frameIndex = stride;
+  while (frameCount < 50) {
+    if (stride > 1) {
+      if (stride <= 10) {
+        for (int i = 0; i < stride - 1; ++i) {
+          if (!loader_->grabFrame())
+            break;
+        }
+      } else {
+        loader_->seekFrame(frameIndex);
+      }
+    }
+
+    cv::Mat currFrame = loader_->readFrame();
+    if (currFrame.empty())
+      break;
+
     cv::Mat grayCurr;
     if (currFrame.channels() == 1)
       grayCurr = currFrame;
@@ -150,7 +172,7 @@ double VideoHandler::getMotionScore() {
     totalMotion += core::calculateFrameMotion(prevGray, grayCurr);
     prevGray = grayCurr;
     frameCount++;
-    currFrame = loader_->readFrame();
+    frameIndex += stride;
   }
   return frameCount > 1 ? (totalMotion / (frameCount - 1)) : 0.0;
 }
@@ -171,10 +193,12 @@ std::vector<std::array<double, 3>> VideoHandler::getDominantColors() {
   return core::extractVideoDominantColors(frames, 3);
 }
 
-std::vector<int> VideoHandler::detectSceneChanges(double threshold) {
+std::vector<int> VideoHandler::detectSceneChanges(double threshold,
+                                                  int stride) {
   if (!loader_ || (!filename_.empty() && !loader_->open(filename_)))
     return {};
 
+  stride = std::max(1, stride);
   cv::Mat prevFrame = loader_->readFrame();
   if (prevFrame.empty())
     return {};
@@ -186,9 +210,23 @@ std::vector<int> VideoHandler::detectSceneChanges(double threshold) {
     cv::cvtColor(prevFrame, prevGray, cv::COLOR_BGR2GRAY);
 
   std::vector<int> sceneChanges;
-  int frameIndex = 1;
-  cv::Mat currFrame = loader_->readFrame();
-  while (!currFrame.empty()) {
+  int frameIndex = stride;
+  while (true) {
+    if (stride > 1) {
+      if (stride <= 10) {
+        for (int i = 0; i < stride - 1; ++i) {
+          if (!loader_->grabFrame())
+            break;
+        }
+      } else {
+        loader_->seekFrame(frameIndex);
+      }
+    }
+
+    cv::Mat currFrame = loader_->readFrame();
+    if (currFrame.empty())
+      break;
+
     cv::Mat grayCurr;
     if (currFrame.channels() == 1)
       grayCurr = currFrame;
@@ -200,8 +238,7 @@ std::vector<int> VideoHandler::detectSceneChanges(double threshold) {
       sceneChanges.push_back(frameIndex);
     }
     prevGray = grayCurr;
-    frameIndex++;
-    currFrame = loader_->readFrame();
+    frameIndex += stride;
   }
   return sceneChanges;
 }
@@ -255,10 +292,73 @@ bool VideoHandler::hasAudioTrack() {
   return loader_->getProperty(cv::CAP_PROP_AUDIO_BASE_INDEX) >= 0.0;
 }
 
-ShotLengthStats VideoHandler::getShotLengthStats(double threshold) {
-  std::vector<int> changes = detectSceneChanges(threshold);
+ShotLengthStats VideoHandler::getShotLengthStats(double threshold, int stride) {
+  std::vector<int> changes = detectSceneChanges(threshold, stride);
   int totalFrames = getFrameCount().value_or(0);
   return core::calculateShotLengthStats(changes, totalFrames);
+}
+
+std::vector<SceneThumbnail>
+VideoHandler::exportSceneThumbnails(const std::vector<int> &sceneChanges,
+                                    const std::filesystem::path &outputDir) {
+  if (outputDir.empty() || sceneChanges.empty())
+    return {};
+
+  std::error_code ec;
+  std::filesystem::create_directories(outputDir, ec);
+  if (ec)
+    return {};
+
+  if (!loader_ || (!filename_.empty() && !loader_->open(filename_)))
+    return {};
+
+  double fps = getFPS().value_or(30.0);
+  if (fps <= 0.0)
+    fps = 30.0;
+
+  std::string stem = filename_.stem().string();
+  if (stem.empty())
+    stem = "video";
+
+  std::vector<SceneThumbnail> exported;
+  for (size_t i = 0; i < sceneChanges.size(); ++i) {
+    int targetFrame = sceneChanges[i];
+    if (!loader_->seekFrame(targetFrame)) {
+      continue;
+    }
+    cv::Mat frame = loader_->readFrame();
+    if (frame.empty())
+      continue;
+
+    cv::Mat gray;
+    if (frame.channels() == 1)
+      gray = frame;
+    else
+      cv::cvtColor(frame, gray, cv::COLOR_BGR2GRAY);
+
+    cv::Mat laplacian;
+    cv::Laplacian(gray, laplacian, CV_64F);
+    cv::Scalar mean, stddev;
+    cv::meanStdDev(laplacian, mean, stddev);
+    double sharpness = stddev[0] * stddev[0];
+
+    std::ostringstream filenameStream;
+    filenameStream << stem << "_scene_" << (i + 1) << "_frame_" << targetFrame
+                   << ".jpg";
+    std::filesystem::path thumbPath = outputDir / filenameStream.str();
+
+    if (cv::imwrite(thumbPath.string(), frame)) {
+      SceneThumbnail st;
+      st.scene_index = static_cast<int>(i + 1);
+      st.frame_index = targetFrame;
+      st.timestamp_seconds = static_cast<double>(targetFrame) / fps;
+      st.thumbnail_path = thumbPath.string();
+      st.sharpness_score = sharpness;
+      exported.push_back(st);
+    }
+  }
+
+  return exported;
 }
 
 double VideoHandler::getFlickerScore() {
@@ -368,17 +468,35 @@ VideoHandler::getMetrics(const VideoAnalysisOptions &options) {
   m.duration = getDuration().value_or(0.0);
   m.is_grayscale = isGrayscale();
   m.average_brightness = getAverageBrightness();
+
+  int effective_stride = std::max(1, options.sample_stride);
+  if (options.sample_fps > 0.0 && m.fps > 0.0) {
+    effective_stride =
+        std::max(1, static_cast<int>(std::round(m.fps / options.sample_fps)));
+  }
+
   if (!m.is_grayscale) {
-    m.motion_score = getMotionScore();
+    m.motion_score = getMotionScore(effective_stride);
   }
   m.dominant_colors = getDominantColors();
   m.frame_rate_stability = getFrameRateStability();
   m.color_consistency = getColorConsistency();
   m.optical_flow_magnitude = getOpticalFlowMagnitude();
   m.has_audio_track = hasAudioTrack();
+
+  std::vector<int> sceneChanges;
   if (!m.is_grayscale) {
-    m.shot_length_stats = getShotLengthStats(options.scene_change_threshold);
+    sceneChanges =
+        detectSceneChanges(options.scene_change_threshold, effective_stride);
+    m.shot_length_stats =
+        core::calculateShotLengthStats(sceneChanges, m.frame_count);
   }
+
+  if (!options.export_scenes_dir.empty() && !sceneChanges.empty()) {
+    m.scene_thumbnails =
+        exportSceneThumbnails(sceneChanges, options.export_scenes_dir);
+  }
+
   m.flicker_score = getFlickerScore();
   m.best_thumbnail_frame = getBestThumbnailIndex();
   m.temporal_brightness_curve = getTemporalBrightnessCurve();
@@ -444,11 +562,11 @@ bool saveFirstFrameAsImage(const std::filesystem::path &videoPath,
   return handler.saveFirstFrameAsImage(imagePath);
 }
 
-double getVideoMotionScore(const std::filesystem::path &filename) {
+double getVideoMotionScore(const std::filesystem::path &filename, int stride) {
   VideoHandler handler(std::make_unique<OpenCVVideoLoader>());
   if (!handler.open(filename))
     return -1.0;
-  return handler.getMotionScore();
+  return handler.getMotionScore(stride);
 }
 
 std::vector<std::array<double, 3>>
@@ -460,11 +578,21 @@ getVideoDominantColors(const std::filesystem::path &filename) {
 }
 
 std::vector<int> detectVideoSceneChanges(const std::filesystem::path &filename,
-                                         double threshold) {
+                                         double threshold, int stride) {
   VideoHandler handler(std::make_unique<OpenCVVideoLoader>());
   if (!handler.open(filename))
     return {};
-  return handler.detectSceneChanges(threshold);
+  return handler.detectSceneChanges(threshold, stride);
+}
+
+std::vector<SceneThumbnail>
+exportVideoSceneThumbnails(const std::filesystem::path &filename,
+                           const std::vector<int> &sceneChanges,
+                           const std::filesystem::path &outputDir) {
+  VideoHandler handler(std::make_unique<OpenCVVideoLoader>());
+  if (!handler.open(filename))
+    return {};
+  return handler.exportSceneThumbnails(sceneChanges, outputDir);
 }
 
 double getVideoFrameRateStability(const std::filesystem::path &filename) {
@@ -496,11 +624,11 @@ bool videoHasAudioTrack(const std::filesystem::path &filename) {
 }
 
 ShotLengthStats getVideoShotLengthStats(const std::filesystem::path &filename,
-                                        double threshold) {
+                                        double threshold, int stride) {
   VideoHandler handler(std::make_unique<OpenCVVideoLoader>());
   if (!handler.open(filename))
     return {-1.0, -1.0, -1.0, -1.0, -1};
-  return handler.getShotLengthStats(threshold);
+  return handler.getShotLengthStats(threshold, stride);
 }
 
 double getVideoFlickerScore(const std::filesystem::path &filename) {

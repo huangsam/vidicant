@@ -72,6 +72,14 @@ _lib.vidicant_process_image_bytes.restype = ctypes.c_void_p
 _lib.vidicant_process_video.argtypes = [ctypes.c_char_p]
 _lib.vidicant_process_video.restype = ctypes.c_void_p
 
+_lib.vidicant_process_video_options.argtypes = [
+    ctypes.c_char_p,
+    ctypes.c_int,
+    ctypes.c_double,
+    ctypes.c_char_p,
+]
+_lib.vidicant_process_video_options.restype = ctypes.c_void_p
+
 _lib.vidicant_dedupe_directory.argtypes = [
     ctypes.c_char_p,
     ctypes.c_int,
@@ -193,14 +201,38 @@ def process_image_bytes(
         _lib.vidicant_free_string(raw_ptr)
 
 
-def process_video(filename: str) -> dict:
-    """Process a video file and return analysis metrics as a dictionary."""
-    raw_ptr = _lib.vidicant_process_video(filename.encode("utf-8"))
+def process_video(
+    filename: str,
+    stride: int = 1,
+    sample_fps: float | None = None,
+    export_scenes_dir: str | None = None,
+) -> dict:
+    """Process a video file and return analysis metrics as a dictionary.
+
+    Args:
+        filename: Path to the video file.
+        stride: Sampling stride in frames (default: 1, evaluates consecutive frames).
+        sample_fps: Optional target sampling rate in frames per second (e.g. 1.0 = 1 fps).
+        export_scenes_dir: Optional directory path to automatically export high-quality
+            thumbnails for each detected scene change.
+    """
+    fps_val = float(sample_fps) if sample_fps is not None else 0.0
+    export_bytes = export_scenes_dir.encode("utf-8") if export_scenes_dir else None
+
+    raw_ptr = _lib.vidicant_process_video_options(
+        filename.encode("utf-8"),
+        stride,
+        ctypes.c_double(fps_val),
+        export_bytes,
+    )
     if not raw_ptr:
         raise ValueError(f"Failed to process video: {filename}")
     try:
         s = ctypes.string_at(raw_ptr).decode("utf-8")
-        return json.loads(s)
+        res = json.loads(s)
+        if "error" in res:
+            raise ValueError(f"Failed to process video: {res['error']}")
+        return res
     finally:
         _lib.vidicant_free_string(raw_ptr)
 

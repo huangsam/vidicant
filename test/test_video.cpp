@@ -327,3 +327,49 @@ TEST(VideoGlobalTest, GetVideoMetricsWithOptions) {
   EXPECT_GT(mOpt->fps, 0.0);
   EXPECT_GE(mOpt->shot_length_stats.count, 1);
 }
+
+TEST(VideoGlobalTest, GetVideoMotionScoreWithStride) {
+  double motion1 = vidicant::getVideoMotionScore("examples/sample.mp4", 1);
+  double motion2 = vidicant::getVideoMotionScore("examples/sample.mp4", 2);
+  EXPECT_GE(motion1, 0.0);
+  EXPECT_GE(motion2, 0.0);
+}
+
+TEST(VideoGlobalTest, DetectVideoSceneChangesWithStride) {
+  auto changes1 =
+      vidicant::detectVideoSceneChanges("examples/sample.mp4", 30.0, 1);
+  auto changes2 =
+      vidicant::detectVideoSceneChanges("examples/sample.mp4", 30.0, 2);
+  for (int idx : changes1) {
+    EXPECT_GE(idx, 0);
+  }
+  for (int idx : changes2) {
+    EXPECT_GE(idx, 0);
+  }
+}
+
+TEST(VideoGlobalTest, GetVideoMetricsWithStrideAndExportScenes) {
+  std::filesystem::path tempDir = "tmp_test_scenes";
+  VideoAnalysisOptions opts;
+  opts.sample_stride = 2;
+  opts.sample_fps = 15.0;
+  opts.scene_change_threshold = 15.0; // Lower threshold to ensure scene change
+  opts.export_scenes_dir = tempDir;
+
+  auto mOpt = vidicant::getVideoMetrics("examples/sample.mp4", opts);
+  ASSERT_TRUE(mOpt.has_value());
+  EXPECT_GT(mOpt->frame_count, 0);
+
+  // If scenes were detected, verify files were written
+  for (const auto &st : mOpt->scene_thumbnails) {
+    EXPECT_GT(st.scene_index, 0);
+    EXPECT_GT(st.frame_index, 0);
+    EXPECT_GE(st.timestamp_seconds, 0.0);
+    EXPECT_TRUE(std::filesystem::exists(st.thumbnail_path));
+    EXPECT_GE(st.sharpness_score, 0.0);
+  }
+
+  // Clean up
+  std::error_code ec;
+  std::filesystem::remove_all(tempDir, ec);
+}

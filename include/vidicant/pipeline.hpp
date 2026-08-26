@@ -7,6 +7,7 @@
 #ifndef VIDICANT_PIPELINE_HPP
 #define VIDICANT_PIPELINE_HPP
 
+#include "vidicant/types.hpp"
 #include <cstdint>
 #include <filesystem>
 #include <nlohmann/json.hpp>
@@ -37,7 +38,8 @@ nlohmann::json processImageBytes(const uint8_t *buffer, size_t len,
                                  float nms_threshold = 0.4f);
 
 // Function to process a video file and return JSON result.
-nlohmann::json processVideo(const std::filesystem::path &filename);
+nlohmann::json processVideo(const std::filesystem::path &filename,
+                            const VideoAnalysisOptions &options = {});
 
 // Function to deduplicate a directory of images and return JSON result.
 nlohmann::json dedupeDirectory(const std::filesystem::path &dir,

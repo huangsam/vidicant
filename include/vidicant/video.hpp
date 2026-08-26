@@ -52,6 +52,12 @@ public:
   // Reads the next frame from the video.
   virtual cv::Mat readFrame() = 0;
 
+  // Seeks to a specific frame index.
+  virtual bool seekFrame(int /*frameIndex*/) { return false; }
+
+  // Grabs the next frame without decoding (for efficient skipping).
+  virtual bool grabFrame() { return false; }
+
   // Retrieves a raw VideoCapture property by ID (default: -1.0 if unsupported).
   virtual double getProperty(int /*propId*/) { return -1.0; }
 };
@@ -78,6 +84,12 @@ public:
 
   // Reads the next frame using OpenCV.
   cv::Mat readFrame() override;
+
+  // Seeks to a specific frame index.
+  bool seekFrame(int frameIndex) override;
+
+  // Grabs the next frame without decoding.
+  bool grabFrame() override;
 
   // Retrieves a VideoCapture property by ID.
   double getProperty(int propId) override;
@@ -143,16 +155,19 @@ public:
   bool saveFirstFrameAsImage(const std::filesystem::path &imagePath);
 
   // Calculates a motion score based on frame differences.
+  // @param stride Frame stride for sampling (1 = every frame).
   // @return A motion score (higher values indicate more motion).
-  double getMotionScore();
+  double getMotionScore(int stride = 1);
 
   // Extracts dominant colors from the video frames.
   // @return A vector of arrays representing dominant colors in RGB format.
   std::vector<std::array<double, 3>> getDominantColors();
 
   // Detects scene changes in the video.
+  // @param threshold Pixel difference threshold for detecting transitions.
+  // @param stride Frame stride for sampling (1 = every frame).
   // @return A vector of frame indices where scene changes occur.
-  std::vector<int> detectSceneChanges(double threshold = 30.0);
+  std::vector<int> detectSceneChanges(double threshold = 30.0, int stride = 1);
 
   // Calculates frame rate stability (coefficient of variation).
   // @return Frame rate stability score (lower is more stable).
@@ -174,8 +189,9 @@ public:
   // Returns statistics on shot (scene segment) lengths in frames.
   // @param threshold Mean pixel difference threshold for scene change
   // detection.
+  // @param stride Frame stride for sampling (1 = every frame).
   // @return ShotLengthStats with mean, stddev, min, max, and count.
-  ShotLengthStats getShotLengthStats(double threshold = 30.0);
+  ShotLengthStats getShotLengthStats(double threshold = 30.0, int stride = 1);
 
   // Measures flicker intensity as the standard deviation of frame-to-frame
   // brightness changes.
@@ -186,6 +202,12 @@ public:
   // Quality is scored by sharpness (Laplacian variance) × brightness penalty.
   // @return 0-based frame index in the video stream.
   int getBestThumbnailIndex();
+
+  // Extracts and saves the sharpest thumbnail for each detected scene cut to
+  // outputDir.
+  std::vector<SceneThumbnail>
+  exportSceneThumbnails(const std::vector<int> &sceneChanges,
+                        const std::filesystem::path &outputDir);
 
   // Returns per-frame brightness values as a time series (up to 100 frames).
   // @return Vector of brightness values.
@@ -241,8 +263,9 @@ bool isVideoGrayscale(const std::filesystem::path &filename);
 bool saveFirstFrameAsImage(const std::filesystem::path &videoPath,
                            const std::filesystem::path &imagePath);
 
-// Convenience function to get motion score.
-double getVideoMotionScore(const std::filesystem::path &filename);
+// Convenience function to get motion score with stride.
+double getVideoMotionScore(const std::filesystem::path &filename,
+                           int stride = 1);
 
 // Convenience function to get dominant colors.
 std::vector<std::array<double, 3>>
@@ -250,7 +273,8 @@ getVideoDominantColors(const std::filesystem::path &filename);
 
 // Convenience function to detect scene changes.
 std::vector<int> detectVideoSceneChanges(const std::filesystem::path &filename,
-                                         double threshold = 30.0);
+                                         double threshold = 30.0,
+                                         int stride = 1);
 
 // Convenience function to get frame rate stability.
 double getVideoFrameRateStability(const std::filesystem::path &filename);
@@ -266,13 +290,20 @@ bool videoHasAudioTrack(const std::filesystem::path &filename);
 
 // Convenience function to get shot length statistics.
 ShotLengthStats getVideoShotLengthStats(const std::filesystem::path &filename,
-                                        double threshold = 30.0);
+                                        double threshold = 30.0,
+                                        int stride = 1);
 
 // Convenience function to get flicker score.
 double getVideoFlickerScore(const std::filesystem::path &filename);
 
 // Convenience function to get best thumbnail frame index.
 int getVideoBestThumbnailIndex(const std::filesystem::path &filename);
+
+// Convenience function to export scene thumbnails to an output directory.
+std::vector<SceneThumbnail>
+exportVideoSceneThumbnails(const std::filesystem::path &filename,
+                           const std::vector<int> &sceneChanges,
+                           const std::filesystem::path &outputDir);
 
 // Convenience function to get temporal brightness curve.
 std::vector<double>

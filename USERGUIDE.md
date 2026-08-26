@@ -167,7 +167,14 @@ print(f"Decoded: {metrics['width']}x{metrics['height']}, Blur: {metrics['blur_sc
 
 ### Video Processing
 
-#### `process_video(filename: str) -> dict`
+#### `process_video(filename: str, stride: int = 1, sample_fps: float | None = None, export_scenes_dir: str | None = None) -> dict`
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `filename` | `str` | *required* | Path to the video file. |
+| `stride` | `int` | `1` | Frame sampling stride (e.g. `2` = inspect every 2nd frame for 2x speedup). |
+| `sample_fps` | `float \| None` | `None` | Target sampling rate in frames per second (e.g. `1.0` = sample 1 fps). Overrides `stride` if set. |
+| `export_scenes_dir` | `str \| None` | `None` | Optional directory to automatically export the sharpest JPEG thumbnail for each detected scene transition. |
 
 **Returned Video Metrics Schema:**
 ```json
@@ -191,6 +198,15 @@ print(f"Decoded: {metrics['width']}x{metrics['height']}, Blur: {metrics['blur_sc
   "motion_score": 3.82,
   "dominant_colors": [[120, 140, 160], [40, 50, 60]],
   "scene_changes": [45, 120, 210],
+  "scene_thumbnails": [
+    {
+      "scene_index": 1,
+      "frame_index": 45,
+      "timestamp_seconds": 1.5,
+      "thumbnail_path": "scenes/clip_scene_1_frame_45.jpg",
+      "sharpness_score": 425.8
+    }
+  ],
   "frame_rate_stability": 0.002,
   "color_consistency": 1.15,
   "optical_flow_magnitude": 2.45,
@@ -204,7 +220,7 @@ print(f"Decoded: {metrics['width']}x{metrics['height']}, Blur: {metrics['blur_sc
   },
   "flicker_score": 0.04,
   "best_thumbnail_frame": 85,
-  "temporal_brightness_curve": [114.2, 115.1, 115.8, ...],
+  "temporal_brightness_curve": [114.2, 115.1, 115.8],
   "codec_fourcc": "avc1"
 }
 ```
@@ -223,7 +239,7 @@ is_vid = vidicant.is_video_file("sample.mp4")  # True
 
 ---
 
-### Model Management Utilities
+### Neural Model Management
 
 ```python
 import vidicant
@@ -250,6 +266,15 @@ local_path = vidicant.ensure_model("https://example.com/model.onnx")
 
 # Streaming Tabular CSV format (.csv)
 ./zig-out/bin/vidicant_cli ./dataset/ --format csv -o dataset_metrics.csv
+
+# Accelerated video processing with stride (sample every 5th frame)
+./zig-out/bin/vidicant_cli clip.mp4 --stride 5
+
+# Video processing with fixed target sampling rate (1 fps) & automatic scene cut thumbnail export
+./zig-out/bin/vidicant_cli clip.mp4 --sample-rate 1.0 --export-scenes ./thumbnails/
+
+# Declarative quality filtering (isolate clean, high-contrast, sharp images)
+./zig-out/bin/vidicant_cli ./dataset/ --filter "blur_score > 60 and contrast_ratio > 0.2 and width >= 512" -o clean_images.json
 
 # Classification with Top-3 labels
 ./zig-out/bin/vidicant_cli photo.jpg --task classify --top-k 3

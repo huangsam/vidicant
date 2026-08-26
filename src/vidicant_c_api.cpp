@@ -92,10 +92,22 @@ const char *vidicant_process_image_bytes(const uint8_t *buffer, size_t len,
 }
 
 const char *vidicant_process_video(const char *filename) {
+  return vidicant_process_video_options(filename, 1, 0.0, nullptr);
+}
+
+const char *vidicant_process_video_options(const char *filename, int stride,
+                                           double sample_fps,
+                                           const char *export_scenes_dir) {
   if (!filename)
     return nullptr;
   try {
-    nlohmann::json res = vidicant::processVideo(std::string(filename));
+    vidicant::VideoAnalysisOptions opts;
+    opts.sample_stride = stride > 0 ? stride : 1;
+    opts.sample_fps = sample_fps > 0.0 ? sample_fps : 0.0;
+    if (export_scenes_dir && std::strlen(export_scenes_dir) > 0) {
+      opts.export_scenes_dir = export_scenes_dir;
+    }
+    nlohmann::json res = vidicant::processVideo(std::string(filename), opts);
     std::string s = res.dump();
     char *out = static_cast<char *>(std::malloc(s.size() + 1));
     std::memcpy(out, s.c_str(), s.size() + 1);

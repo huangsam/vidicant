@@ -70,6 +70,14 @@ VIDICANT_API const char *vidicant_process_image_bytes(
 /// vidicant_free_string().
 VIDICANT_API const char *vidicant_process_video(const char *filename);
 
+/// Analyzes a video file with options (stride, sample_fps, export_scenes_dir)
+/// and returns a JSON string. Caller must free the returned string with
+/// vidicant_free_string().
+VIDICANT_API const char *
+vidicant_process_video_options(const char *filename, int stride,
+                               double sample_fps,
+                               const char *export_scenes_dir);
+
 /// Clusters duplicate/near-duplicate images in a directory via perceptual
 /// hashing. Caller must free the returned string with vidicant_free_string().
 VIDICANT_API const char *

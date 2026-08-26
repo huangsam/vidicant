@@ -35,6 +35,9 @@ const header_files = [_][]const u8{
     "include/vidicant/core/video_ops.hpp",
     "include/vidicant/dnn/dnn_engine.hpp",
     "include/vidicant/io/file_detector.hpp",
+    "include/vidicant/cli/dedupe_cmd.hpp",
+    "include/vidicant/cli/filter.hpp",
+    "include/vidicant/cli/formatters.hpp",
 };
 
 const lib_sources = [_][]const u8{

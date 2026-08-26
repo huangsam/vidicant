@@ -91,6 +91,16 @@ struct ShotLengthStats {
   int count{0};       // Total number of shots.
 };
 
+// Struct: SceneThumbnail
+// Metadata for an exported scene transition thumbnail.
+struct SceneThumbnail {
+  int scene_index{0};
+  int frame_index{0};
+  double timestamp_seconds{0.0};
+  std::string thumbnail_path;
+  double sharpness_score{0.0};
+};
+
 // Struct: VideoMetrics
 // Aggregates all per-video analysis results into a single object.
 struct VideoMetrics {
@@ -112,6 +122,7 @@ struct VideoMetrics {
   int best_thumbnail_frame{0};
   std::vector<double> temporal_brightness_curve;
   std::string codec_fourcc;
+  std::vector<SceneThumbnail> scene_thumbnails;
 };
 
 // Struct: ImageAnalysisOptions
@@ -132,6 +143,11 @@ struct VideoAnalysisOptions {
   int dominant_colors_k{3};
   int max_motion_frames{50};
   int max_brightness_frames{100};
+  int sample_stride{1}; // Stride in frames (1 = consecutive, >1 = skip frames)
+  double sample_fps{
+      0.0}; // Target sampling rate in fps (<=0 = use sample_stride)
+  std::filesystem::path export_scenes_dir{
+      ""}; // Output directory for scene cut thumbnails
 };
 
 } // namespace vidicant

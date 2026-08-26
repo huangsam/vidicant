@@ -601,6 +601,107 @@ def test_python_version_compatibility():
     print()
 
 
+def test_video_stride_and_thumbnails():
+    """Test video processing with stride, target fps, and scene thumbnail export."""
+    print("=" * 60)
+    print("TEST: Video Processing with Stride & Scene Thumbnail Export")
+    print("=" * 60)
+
+    temp_dir = tempfile.mkdtemp(prefix="vidicant_py_scenes_test_")
+    try:
+        res = vidicant.process_video(
+            "examples/sample.mp4",
+            stride=2,
+            sample_fps=15.0,
+            export_scenes_dir=temp_dir,
+        )
+        assert isinstance(res, dict)
+        assert res["frame_count"] > 0
+        assert "scene_thumbnails" in res
+        assert isinstance(res["scene_thumbnails"], list)
+        print(f"✓ Processed video with stride=2 (scenes: {len(res['scene_thumbnails'])})")
+
+        for st in res["scene_thumbnails"]:
+            assert "scene_index" in st
+            assert "thumbnail_path" in st
+            assert os.path.exists(st["thumbnail_path"])
+            assert "sharpness_score" in st
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+    print("✓ Video stride and scene thumbnail auto-export verified")
+    print()
+
+
+def test_cli_video_stride_and_filter():
+    """Test CLI video options (--stride, --sample-rate, --export-scenes) and --filter."""
+    print("=" * 60)
+    print("TEST: CLI Video Stride & Filter Expressions")
+    print("=" * 60)
+
+    cli_bin = os.path.join("zig-out", "bin", "vidicant_cli")
+    assert os.path.exists(cli_bin), f"CLI binary not found at {cli_bin}"
+
+    temp_dir = tempfile.mkdtemp(prefix="vidicant_cli_filter_test_")
+    try:
+        # 1. Test video with --stride 2 and --export-scenes
+        scenes_dir = os.path.join(temp_dir, "scenes")
+        cmd_stride = [
+            cli_bin,
+            "examples/sample.mp4",
+            "--stride",
+            "2",
+            "--export-scenes",
+            scenes_dir,
+            "--format",
+            "json",
+            "-o",
+            "-",
+        ]
+        res_stride = subprocess.run(cmd_stride, capture_output=True, text=True, check=True)
+        data = json.loads(res_stride.stdout)
+        assert len(data["videos"]) == 1
+        assert "scene_thumbnails" in data["videos"][0]
+        print("✓ CLI --stride and --export-scenes verified")
+
+        # 2. Test CLI --filter matching image
+        cmd_filter_pass = [
+            cli_bin,
+            "examples/sample.jpg",
+            "--filter",
+            "blur_score > 10 and is_grayscale == false",
+            "--format",
+            "json",
+            "-o",
+            "-",
+        ]
+        res_pass = subprocess.run(cmd_filter_pass, capture_output=True, text=True, check=True)
+        data_pass = json.loads(res_pass.stdout)
+        assert len(data_pass["images"]) == 1
+        print("✓ CLI --filter positive match verified")
+
+        # 3. Test CLI --filter rejecting image
+        cmd_filter_fail = [
+            cli_bin,
+            "examples/sample.jpg",
+            "--filter",
+            "blur_score > 999999 or is_grayscale == true",
+            "--format",
+            "json",
+            "-o",
+            "-",
+        ]
+        res_fail = subprocess.run(cmd_filter_fail, capture_output=True, text=True, check=True)
+        data_fail = json.loads(res_fail.stdout)
+        assert len(data_fail["images"]) == 0
+        print("✓ CLI --filter rejection match verified")
+
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+    print()
+
+
 def test_runnable_examples():
     """Test that all standalone runnable reference applications in examples/python/ execute cleanly."""
     print("=" * 60)
@@ -648,6 +749,7 @@ def main():
         test_analyzing_images()
         test_analyzing_videos()
         test_video_motion_detection()
+        test_video_stride_and_thumbnails()
         test_process_image_bytes()
         test_ml_quality_assessment()
         test_semantic_classification()
@@ -655,6 +757,7 @@ def main():
         test_generic_embeddings()
         test_cli_streaming_formats()
         test_cli_deduplication()
+        test_cli_video_stride_and_filter()
         test_python_deduplication()
         test_runnable_examples()
 
