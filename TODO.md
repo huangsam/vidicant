@@ -58,3 +58,20 @@ Enhance ONNX model integration flexibility and simplify distribution across plat
 - [ ] **Automated Multi-Arch CI/CD & Prebuilt Wheels**
     - Configure GitHub Actions matrix to build native shared libraries (`.dylib` on macOS arm64/x86_64, `.so` on Linux x86_64/aarch64).
     - Package native binaries inside pure Python wheels for instant `pip install vidicant` without requiring local compilation or system dependencies.
+
+---
+
+## Tier 4: Runnable Reference Applications (Dogfooding & Real-World Integration)
+
+Bridge `docs/use_cases.md` with executable, self-contained reference scripts in `examples/` that run against bundled sample assets (`examples/sample.jpg`, `examples/sample.mp4`).
+
+- [ ] **In-Memory Cloud Ingestion Gate (`examples/ingestion_gate.py`)**
+    - Implement a pre-flight upload validator checking blur, exposure, and noise thresholds using `process_image_bytes` with zero disk I/O.
+- [ ] **Video Chapter & Thumbnail Indexer (`examples/video_chapters.py`)**
+    - Implement a chapter generator that segments scene cuts, computes pacing stats, and identifies optimal thumbnail frames.
+- [ ] **E-Commerce Product QA & Color Indexer (`examples/product_qa.py`)**
+    - Validate product image guidelines (white balance deviation, GLCM texture contrast, and dominant color palette extraction).
+- [ ] **Multimodal RAG Keyframe Pruner (`examples/rag_keyframe_filter.py`)**
+    - Prune redundant video frames using scene changes and motion magnitude to minimize Vision LLM token costs.
+- [ ] **Catalog Deduplication Script (`examples/dedupe_catalog.py`)**
+    - Cluster near-duplicate images using 64-bit dHash perceptual hashes and Hamming distance thresholds.
