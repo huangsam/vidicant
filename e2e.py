@@ -601,6 +601,40 @@ def test_python_version_compatibility():
     print()
 
 
+def test_runnable_examples():
+    """Test that all standalone runnable reference applications in examples/python/ execute cleanly."""
+    print("=" * 60)
+    print("TEST: Runnable Reference Applications (examples/python/*.py)")
+    print("=" * 60)
+
+    examples = [
+        ("ingestion_gate.py", "Ingestion Gate Decision"),
+        ("video_chapters.py", "VIDEO CHAPTER MANIFEST"),
+        ("product_qa.py", "E-COMMERCE PRODUCT LISTING QA REPORT"),
+        ("rag_keyframe_filter.py", "MULTIMODAL VISION LLM KEYFRAME PRUNING PLAN"),
+        ("dedupe_catalog.py", "PERCEPTUAL HASH DEDUPLICATION SUMMARY"),
+    ]
+
+    base_env = os.environ.copy()
+    base_env["PYTHONPATH"] = "."
+
+    for script_name, expected_marker in examples:
+        script_path = os.path.join("examples", "python", script_name)
+        assert os.path.exists(script_path), f"Example script not found: {script_path}"
+
+        res = subprocess.run(
+            [sys.executable, script_path],
+            env=base_env,
+            capture_output=True,
+            text=True,
+        )
+        assert res.returncode == 0, f"Example '{script_name}' failed with code {res.returncode}:\n{res.stderr}"
+        assert expected_marker in res.stdout, f"Expected marker '{expected_marker}' not found in output of {script_name}"
+        print(f"✓ examples/python/{script_name} executed successfully")
+
+    print()
+
+
 def main():
     """Run all end-to-end tests."""
     print("=" * 60)
@@ -622,6 +656,7 @@ def main():
         test_cli_streaming_formats()
         test_cli_deduplication()
         test_python_deduplication()
+        test_runnable_examples()
 
         print("=" * 60)
         print("✓ ALL TESTS PASSED!")

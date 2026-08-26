@@ -63,15 +63,17 @@ Enhance ONNX model integration flexibility and simplify distribution across plat
 
 ## Tier 4: Runnable Reference Applications (Dogfooding & Real-World Integration)
 
-Bridge `docs/use_cases.md` with executable, self-contained reference scripts in `examples/` that run against bundled sample assets (`examples/sample.jpg`, `examples/sample.mp4`).
+Bridge `docs/use_cases.md` with executable, self-contained reference scripts in `examples/python/` and `examples/go/` that run against bundled sample assets (`examples/sample.jpg`, `examples/sample.mp4`).
 
-- [ ] **In-Memory Cloud Ingestion Gate (`examples/ingestion_gate.py`)**
+- [x] **In-Memory Cloud Ingestion Gate (`examples/python/ingestion_gate.py`)**
     - Implement a pre-flight upload validator checking blur, exposure, and noise thresholds using `process_image_bytes` with zero disk I/O.
-- [ ] **Video Chapter & Thumbnail Indexer (`examples/video_chapters.py`)**
+- [x] **Video Chapter & Thumbnail Indexer (`examples/python/video_chapters.py`)**
     - Implement a chapter generator that segments scene cuts, computes pacing stats, and identifies optimal thumbnail frames.
-- [ ] **E-Commerce Product QA & Color Indexer (`examples/product_qa.py`)**
+- [x] **E-Commerce Product QA & Color Indexer (`examples/python/product_qa.py`)**
     - Validate product image guidelines (white balance deviation, GLCM texture contrast, and dominant color palette extraction).
-- [ ] **Multimodal RAG Keyframe Pruner (`examples/rag_keyframe_filter.py`)**
+- [x] **Multimodal RAG Keyframe Pruner (`examples/python/rag_keyframe_filter.py`)**
     - Prune redundant video frames using scene changes and motion magnitude to minimize Vision LLM token costs.
-- [ ] **Catalog Deduplication Script (`examples/dedupe_catalog.py`)**
+- [x] **Catalog Deduplication Script (`examples/python/dedupe_catalog.py`)**
     - Cluster near-duplicate images using 64-bit dHash perceptual hashes and Hamming distance thresholds.
+- [x] **Go Cgo Concurrent Worker & Upload Server (`examples/go/main.go`)**
+    - Implement a concurrent Go service combining `net/http` in-memory upload validation with a goroutine-backed media worker pool.

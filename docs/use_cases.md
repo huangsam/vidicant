@@ -39,6 +39,12 @@ Large media platforms (content marketplaces, photo storage, social networks) ing
 ### Solution
 Deploy Vidicant as a fast, lightweight ingestion filter before committing assets to permanent storage or kicking off expensive GPU processing.
 
+> [!TIP]
+> **Runnable Reference**: [`examples/python/ingestion_gate.py`](../examples/python/ingestion_gate.py)
+> ```bash
+> PYTHONPATH=. python3 examples/python/ingestion_gate.py
+> ```
+
 ```python
 import vidicant
 
@@ -74,6 +80,12 @@ Video-sharing platforms and learning management systems (LMS) require automated 
 ### Solution
 Use Vidicant's `scene_changes`, `shot_length_stats`, and `best_thumbnail_frame` to automatically segment videos into scenes and extract the sharpest, most representative preview frame.
 
+> [!TIP]
+> **Runnable Reference**: [`examples/python/video_chapters.py`](../examples/python/video_chapters.py)
+> ```bash
+> PYTHONPATH=. python3 examples/python/video_chapters.py
+> ```
+
 ```python
 import vidicant
 
@@ -103,6 +115,12 @@ Marketplace sellers (e.g., Shopify, Amazon, Airbnb) upload unstandardized produc
 
 ### Solution
 Automate photo guideline compliance and extract dominant color palettes for catalog search and filtering:
+
+> [!TIP]
+> **Runnable Reference**: [`examples/python/product_qa.py`](../examples/python/product_qa.py)
+> ```bash
+> PYTHONPATH=. python3 examples/python/product_qa.py
+> ```
 
 ```python
 import vidicant
@@ -137,6 +155,12 @@ Use Vidicant as an upstream semantic and visual filter:
 2. Select only keyframes with high sharpness (`sharpness_score`) and significant motion.
 3. Pre-tag objects/scenes using embedded ONNX classifiers before invoking cloud LLMs.
 
+> [!TIP]
+> **Runnable Reference**: [`examples/python/rag_keyframe_filter.py`](../examples/python/rag_keyframe_filter.py)
+> ```bash
+> PYTHONPATH=. python3 examples/python/rag_keyframe_filter.py
+> ```
+
 ```python
 import vidicant
 
@@ -155,13 +179,21 @@ def extract_rag_keyframes(video_path: str, min_motion_threshold: float = 2.0) ->
 
 ---
 
-## 5. Zero-Dependency Microservices (AWS Lambda / Cloud Run / FastAPI)
+## 5. Zero-Dependency Microservices & Concurrency (Go / Python)
 
 ### Problem
 Packaging heavy machine learning frameworks (e.g., PyTorch, TensorFlow, large OpenCV Python wrappers) into serverless functions leads to multi-gigabyte container sizes, slow cold starts, and complex dependency conflicts.
 
 ### Solution
-Because Vidicant’s Python client uses pure standard library (`ctypes`), serverless bundles remain ultra-lightweight (<50MB) and cold starts take milliseconds.
+Because Vidicant’s Python client uses pure standard library (`ctypes`) and exposes a universal C-ABI (`c_api.h`), services remain ultra-lightweight (<50MB), cold starts take milliseconds, and compiled services like Go can process media concurrently.
+
+> [!TIP]
+> **Runnable References**:
+> - Python Microservice: [`examples/python/ingestion_gate.py`](../examples/python/ingestion_gate.py)
+> - Go Cgo Concurrent Worker & HTTP Service: [`examples/go/main.go`](../examples/go/main.go)
+>   ```bash
+>   cd examples/go && go run main.go
+>   ```
 
 ```python
 from fastapi import FastAPI, UploadFile, HTTPException
@@ -194,7 +226,13 @@ async def analyze_image(file: UploadFile):
 Storage bloat and catalog spam caused by mirrored, resized, watermarked, or slightly modified re-uploads.
 
 ### Solution
-Use Vidicant's CLI to scan and cluster entire asset directories in streaming JSONL or text format:
+Use Vidicant's CLI or Python API to scan and cluster entire asset directories in streaming JSONL or text format:
+
+> [!TIP]
+> **Runnable Reference**: [`examples/python/dedupe_catalog.py`](../examples/python/dedupe_catalog.py)
+> ```bash
+> PYTHONPATH=. python3 examples/python/dedupe_catalog.py
+> ```
 
 ```bash
 # Scan a directory and find near-duplicate clusters (Hamming distance <= 5)
