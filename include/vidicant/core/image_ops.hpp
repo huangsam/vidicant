@@ -14,6 +14,9 @@
 
 namespace vidicant::core {
 
+// Color conversion helper
+cv::Mat toGrayscale(const cv::Mat &image);
+
 // Brightness & color
 double calculateAverageBrightness(const cv::Mat &image);
 std::vector<std::array<double, 3>> extractDominantColors(const cv::Mat &image,

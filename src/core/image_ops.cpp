@@ -8,7 +8,6 @@
 
 namespace vidicant::core {
 
-namespace {
 cv::Mat toGrayscale(const cv::Mat &image) {
   if (image.empty())
     return cv::Mat();
@@ -21,7 +20,6 @@ cv::Mat toGrayscale(const cv::Mat &image) {
     cv::cvtColor(image, gray, cv::COLOR_BGR2GRAY);
   return gray;
 }
-} // namespace
 
 double calculateAverageBrightness(const cv::Mat &image) {
   if (image.empty())
@@ -104,7 +102,7 @@ double calculateContrastRatio(const cv::Mat &image) {
   cv::Mat gray = toGrayscale(image);
   double minVal = 0.0, maxVal = 0.0;
   cv::minMaxLoc(gray, &minVal, &maxVal);
-  return maxVal > 0 ? maxVal / (minVal + 1e-6) : 0.0;
+  return maxVal > 0 ? maxVal / std::max(minVal, 1.0) : 0.0;
 }
 
 double calculateSaturationLevel(const cv::Mat &image) {
@@ -126,14 +124,24 @@ std::vector<std::vector<int>> calculateHistogram(const cv::Mat &image) {
   std::vector<cv::Mat> channels;
   cv::split(image, channels);
   std::vector<std::vector<int>> histograms;
+  histograms.reserve(channels.size());
   for (const auto &channel : channels) {
     std::vector<int> hist(256, 0);
-    for (int i = 0; i < channel.rows; ++i) {
-      for (int j = 0; j < channel.cols; ++j) {
-        hist[channel.at<uchar>(i, j)]++;
+    if (channel.isContinuous()) {
+      const uchar *p = channel.data;
+      const size_t n = channel.total();
+      for (size_t idx = 0; idx < n; ++idx) {
+        hist[p[idx]]++;
+      }
+    } else {
+      for (int i = 0; i < channel.rows; ++i) {
+        const uchar *row = channel.ptr<uchar>(i);
+        for (int j = 0; j < channel.cols; ++j) {
+          hist[row[j]]++;
+        }
       }
     }
-    histograms.push_back(hist);
+    histograms.push_back(std::move(hist));
   }
   return histograms;
 }
@@ -165,10 +173,18 @@ std::vector<int> calculateHueHistogram(const cv::Mat &image) {
   const cv::Mat &hue = channels[0];
 
   std::vector<int> hist(36, 0);
-  for (int r = 0; r < hue.rows; ++r) {
-    for (int c = 0; c < hue.cols; ++c) {
-      int h = hue.at<uchar>(r, c);
-      hist[std::min(h / 5, 35)]++;
+  if (hue.isContinuous()) {
+    const uchar *p = hue.data;
+    const size_t n = hue.total();
+    for (size_t idx = 0; idx < n; ++idx) {
+      hist[std::min(p[idx] / 5, 35)]++;
+    }
+  } else {
+    for (int r = 0; r < hue.rows; ++r) {
+      const uchar *row = hue.ptr<uchar>(r);
+      for (int c = 0; c < hue.cols; ++c) {
+        hist[std::min(row[c] / 5, 35)]++;
+      }
     }
   }
   return hist;
@@ -223,11 +239,14 @@ double calculateNoiseEstimate(const cv::Mat &image) {
     return 0.0;
 
   cv::Mat grayF;
-  gray.convertTo(grayF, CV_64F);
-  cv::Mat kernel = (cv::Mat_<double>(3, 3) << 1, -2, 1, -2, 4, -2, 1, -2, 1);
+  gray.convertTo(grayF, CV_32F);
+  static const float kData[9] = {1.0f,  -2.0f, 1.0f,  -2.0f, 4.0f,
+                                 -2.0f, 1.0f,  -2.0f, 1.0f};
+  cv::Mat kernel(3, 3, CV_32F, const_cast<float *>(kData));
   cv::Mat filtered;
-  cv::filter2D(grayF, filtered, CV_64F, kernel);
-  double sumAbs = cv::norm(filtered, cv::NORM_L1);
+  cv::filter2D(grayF, filtered, CV_32F, kernel);
+  cv::Rect interior(1, 1, n - 2, m - 2);
+  double sumAbs = cv::norm(filtered(interior), cv::NORM_L1);
   return std::sqrt(CV_PI / 2.0) / (6.0 * (m - 2) * (n - 2)) * sumAbs;
 }
 
@@ -341,8 +360,8 @@ double calculateSharpnessScore(const cv::Mat &image) {
     return -1.0;
   cv::Mat gray = toGrayscale(image);
   cv::Mat gradX, gradY, magnitude;
-  cv::Sobel(gray, gradX, CV_64F, 1, 0);
-  cv::Sobel(gray, gradY, CV_64F, 0, 1);
+  cv::Sobel(gray, gradX, CV_32F, 1, 0);
+  cv::Sobel(gray, gradY, CV_32F, 0, 1);
   cv::magnitude(gradX, gradY, magnitude);
   return cv::mean(magnitude)[0];
 }
@@ -356,15 +375,15 @@ std::string classifyNoiseType(const cv::Mat &image) {
   cv::medianBlur(gray, medianFiltered, 3);
   cv::Mat residual;
   cv::absdiff(gray, medianFiltered, residual);
-  residual.convertTo(residual, CV_64F);
 
   constexpr double kSaltPepperResidualThreshold = 50.0;
   constexpr double kSaltPepperRatioThreshold = 0.01;
 
   cv::Mat extremeMask;
-  cv::threshold(residual, extremeMask, kSaltPepperResidualThreshold, 1.0,
+  cv::threshold(residual, extremeMask, kSaltPepperResidualThreshold, 255,
                 cv::THRESH_BINARY);
-  double extremeRatio = cv::sum(extremeMask)[0] / residual.total();
+  double extremeCount = cv::countNonZero(extremeMask);
+  double extremeRatio = extremeCount / static_cast<double>(residual.total());
 
   if (extremeRatio > kSaltPepperRatioThreshold) {
     return "salt_and_pepper";
@@ -402,11 +421,11 @@ double calculateSSIM(const cv::Mat &img1, const cv::Mat &img2) {
     cv::resize(gray2, gray2, gray1.size());
   }
 
-  gray1.convertTo(gray1, CV_64F);
-  gray2.convertTo(gray2, CV_64F);
+  gray1.convertTo(gray1, CV_32F);
+  gray2.convertTo(gray2, CV_32F);
 
-  const double c1 = 6.5025;  // (0.01 * 255)^2
-  const double c2 = 58.5225; // (0.03 * 255)^2
+  const float c1 = 6.5025f;  // (0.01 * 255)^2
+  const float c2 = 58.5225f; // (0.03 * 255)^2
 
   cv::Mat I1_sq, I2_sq, I1_I2;
   cv::multiply(gray1, gray1, I1_sq);
@@ -431,12 +450,12 @@ double calculateSSIM(const cv::Mat &img1, const cv::Mat &img2) {
   sigma12 -= mu1_mu2;
 
   cv::Mat numerator, denominator;
-  cv::multiply(2 * mu1_mu2 + c1, 2 * sigma12 + c2, numerator);
+  cv::multiply(2.0f * mu1_mu2 + c1, 2.0f * sigma12 + c2, numerator);
   cv::multiply(mu1_sq + mu2_sq + c1, sigma1_sq + sigma2_sq + c2, denominator);
 
   cv::Mat ssim_map;
   cv::divide(numerator, denominator, ssim_map);
-  return cv::mean(ssim_map)[0];
+  return static_cast<double>(cv::mean(ssim_map)[0]);
 }
 
 } // namespace vidicant::core

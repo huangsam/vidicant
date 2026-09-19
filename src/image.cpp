@@ -184,29 +184,34 @@ ImageHandler::getMetrics(const std::filesystem::path &filename,
     return std::nullopt;
 
   ImageMetrics m{};
-  auto dims = getDimensions(filename);
-  m.width = dims ? dims->first : -1;
-  m.height = dims ? dims->second : -1;
+  m.width = img.cols;
+  m.height = img.rows;
+  m.aspect_ratio =
+      (m.height > 0) ? (static_cast<double>(m.width) / m.height) : 0.0;
+  m.channels = img.channels();
+  m.is_grayscale = (img.channels() == 1);
 
-  m.is_grayscale = isGrayscale(filename);
-  m.average_brightness = getAverageBrightness(filename);
-  m.channels = getNumberOfChannels(filename).value_or(0);
-  m.edge_count = getEdgeCount(filename);
-  m.dominant_colors = getDominantColors(filename);
-  m.blur_score = getBlurScore(filename);
-  m.contrast_ratio = getContrastRatio(filename);
-  m.saturation_level = getSaturationLevel(filename);
-  m.histogram = getHistogram(filename);
-  m.aspect_ratio = getAspectRatio(filename);
-  m.entropy = getImageEntropy(filename);
-  m.noise_estimate = getNoiseEstimate(filename);
-  m.symmetry_score = getSymmetryScore(filename);
-  m.texture = getTextureFeatures(filename);
-  m.perceptual_hash = getPerceptualHash(filename);
-  m.white_balance_score = getWhiteBalanceScore(filename);
-  m.hue_histogram = getHueHistogram(filename);
-  m.sharpness_score = getSharpnessScore(filename);
-  m.noise_type = getNoiseType(filename);
+  // Precompute grayscale Mat once to avoid converting 10+ times in individual
+  // ops
+  cv::Mat gray = core::toGrayscale(img);
+
+  m.average_brightness = core::calculateAverageBrightness(img);
+  m.dominant_colors = core::extractDominantColors(img);
+  m.contrast_ratio = core::calculateContrastRatio(gray);
+  m.saturation_level = core::calculateSaturationLevel(img);
+  m.histogram = core::calculateHistogram(img);
+  m.white_balance_score = core::calculateWhiteBalanceScore(img);
+  m.hue_histogram = core::calculateHueHistogram(img);
+
+  m.edge_count = core::calculateEdgeCount(gray);
+  m.blur_score = core::calculateBlurScore(gray);
+  m.entropy = core::calculateEntropy(gray);
+  m.noise_estimate = core::calculateNoiseEstimate(gray);
+  m.symmetry_score = core::calculateSymmetryScore(gray);
+  m.texture = core::calculateTextureFeatures(gray);
+  m.perceptual_hash = core::calculatePerceptualHash(gray);
+  m.sharpness_score = core::calculateSharpnessScore(gray);
+  m.noise_type = core::classifyNoiseType(gray);
 
   if (!model_path.empty()) {
     runDNNInference(filename, model_path, m, task, top_k, conf_threshold,
