@@ -112,7 +112,8 @@ bool isVideoFile(const std::filesystem::path &filename) {
   }
 
   cv::VideoCapture cap(filename);
-  return cap.isOpened() && cap.get(cv::CAP_PROP_FRAME_COUNT) > 0;
+  return cap.isOpened() &&
+         (cap.get(cv::CAP_PROP_FRAME_COUNT) > 0 || cap.grab());
 }
 
 } // namespace vidicant::io

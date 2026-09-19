@@ -255,41 +255,38 @@ double calculateSymmetryScore(const cv::Mat &image) {
     return -1.0;
   cv::Mat gray = toGrayscale(image);
 
-  int histSize = 256;
-  float range[] = {0, 256};
-  const float *histRange = {range};
-
   int midCol = gray.cols / 2;
   double hSym = 1.0;
   if (midCol > 0) {
     cv::Mat left = gray(cv::Rect(0, 0, midCol, gray.rows));
-    cv::Mat right =
-        gray(cv::Rect(gray.cols - midCol, 0, midCol, gray.rows)).clone();
-    cv::flip(right, right, 1);
-    cv::Mat histL, histR;
-    cv::calcHist(&left, 1, 0, cv::Mat(), histL, 1, &histSize, &histRange);
-    cv::calcHist(&right, 1, 0, cv::Mat(), histR, 1, &histSize, &histRange);
-    cv::normalize(histL, histL, 0, 1, cv::NORM_MINMAX);
-    cv::normalize(histR, histR, 0, 1, cv::NORM_MINMAX);
-    hSym = cv::compareHist(histL, histR, cv::HISTCMP_CORREL);
+    cv::Mat right = gray(cv::Rect(gray.cols - midCol, 0, midCol, gray.rows));
+    cv::Mat flippedRight;
+    cv::flip(right, flippedRight, 1);
+    cv::Mat diff;
+    cv::absdiff(left, flippedRight, diff);
+    double l1 = cv::norm(diff, cv::NORM_L1);
+    double total = static_cast<double>(left.total()) * 255.0;
+    hSym = (total > 0.0) ? (1.0 - 2.0 * l1 / total) : 1.0;
   }
 
   int midRow = gray.rows / 2;
   double vSym = 1.0;
   if (midRow > 0) {
     cv::Mat top = gray(cv::Rect(0, 0, gray.cols, midRow));
-    cv::Mat bottom =
-        gray(cv::Rect(0, gray.rows - midRow, gray.cols, midRow)).clone();
-    cv::flip(bottom, bottom, 0);
-    cv::Mat histT, histB;
-    cv::calcHist(&top, 1, 0, cv::Mat(), histT, 1, &histSize, &histRange);
-    cv::calcHist(&bottom, 1, 0, cv::Mat(), histB, 1, &histSize, &histRange);
-    cv::normalize(histT, histT, 0, 1, cv::NORM_MINMAX);
-    cv::normalize(histB, histB, 0, 1, cv::NORM_MINMAX);
-    vSym = cv::compareHist(histT, histB, cv::HISTCMP_CORREL);
+    cv::Mat bottom = gray(cv::Rect(0, gray.rows - midRow, gray.cols, midRow));
+    cv::Mat flippedBottom;
+    cv::flip(bottom, flippedBottom, 0);
+    cv::Mat diffV;
+    cv::absdiff(top, flippedBottom, diffV);
+    double l1V = cv::norm(diffV, cv::NORM_L1);
+    double totalV = static_cast<double>(top.total()) * 255.0;
+    vSym = (totalV > 0.0) ? (1.0 - 2.0 * l1V / totalV) : 1.0;
   }
 
-  return (hSym + vSym) / 2.0;
+  double score = (hSym + vSym) / 2.0;
+  if (std::isnan(score))
+    return 1.0;
+  return std::clamp(score, -1.0, 1.0);
 }
 
 TextureFeatures calculateTextureFeatures(const cv::Mat &image) {

@@ -179,6 +179,18 @@ ImageHandler::getMetrics(const std::filesystem::path &filename,
                          const std::filesystem::path &model_path,
                          const std::string &task, int top_k,
                          float conf_threshold, float nms_threshold) {
+  ImageAnalysisOptions options;
+  options.model_path = model_path;
+  options.task = task;
+  options.top_k = top_k;
+  options.conf_threshold = conf_threshold;
+  options.nms_threshold = nms_threshold;
+  return getMetrics(filename, options);
+}
+
+std::optional<ImageMetrics>
+ImageHandler::getMetrics(const std::filesystem::path &filename,
+                         const ImageAnalysisOptions &options) {
   cv::Mat img = loadCached(filename);
   if (img.empty())
     return std::nullopt;
@@ -196,7 +208,8 @@ ImageHandler::getMetrics(const std::filesystem::path &filename,
   cv::Mat gray = core::toGrayscale(img);
 
   m.average_brightness = core::calculateAverageBrightness(img);
-  m.dominant_colors = core::extractDominantColors(img);
+  m.dominant_colors =
+      core::extractDominantColors(img, options.dominant_colors_k);
   m.contrast_ratio = core::calculateContrastRatio(gray);
   m.saturation_level = core::calculateSaturationLevel(img);
   m.histogram = core::calculateHistogram(img);
@@ -213,9 +226,10 @@ ImageHandler::getMetrics(const std::filesystem::path &filename,
   m.sharpness_score = core::calculateSharpnessScore(gray);
   m.noise_type = core::classifyNoiseType(gray);
 
-  if (!model_path.empty()) {
-    runDNNInference(filename, model_path, m, task, top_k, conf_threshold,
-                    nms_threshold);
+  if (!options.model_path.empty()) {
+    runDNNInference(filename, options.model_path, m, options.task,
+                    options.top_k, options.conf_threshold,
+                    options.nms_threshold);
   } else {
     m.aesthetic_score = -1.0;
     m.technical_quality_score = -1.0;
@@ -369,16 +383,38 @@ getImageMetrics(const std::filesystem::path &filename,
                 const std::filesystem::path &model_path,
                 const std::string &task, int top_k, float conf_threshold,
                 float nms_threshold) {
+  ImageAnalysisOptions options;
+  options.model_path = model_path;
+  options.task = task;
+  options.top_k = top_k;
+  options.conf_threshold = conf_threshold;
+  options.nms_threshold = nms_threshold;
+  return getImageMetrics(filename, options);
+}
+
+std::optional<ImageMetrics>
+getImageMetrics(const std::filesystem::path &filename,
+                const ImageAnalysisOptions &options) {
   auto loader = std::make_unique<OpenCVImageLoader>();
   ImageHandler handler(std::move(loader));
-  return handler.getMetrics(filename, model_path, task, top_k, conf_threshold,
-                            nms_threshold);
+  return handler.getMetrics(filename, options);
 }
 
 ImageMetrics getImageMetrics(const cv::Mat &mat,
                              const std::filesystem::path &model_path,
                              const std::string &task, int top_k,
                              float conf_threshold, float nms_threshold) {
+  ImageAnalysisOptions options;
+  options.model_path = model_path;
+  options.task = task;
+  options.top_k = top_k;
+  options.conf_threshold = conf_threshold;
+  options.nms_threshold = nms_threshold;
+  return getImageMetrics(mat, options);
+}
+
+ImageMetrics getImageMetrics(const cv::Mat &mat,
+                             const ImageAnalysisOptions &options) {
   if (mat.empty()) {
     ImageMetrics m{};
     m.width = -1;
@@ -387,15 +423,7 @@ ImageMetrics getImageMetrics(const cv::Mat &mat,
   }
   auto loader = std::make_unique<MemoryImageLoader>(mat);
   ImageHandler handler(std::move(loader));
-  auto opt = handler.getMetrics("", model_path, task, top_k, conf_threshold,
-                                nms_threshold);
-  if (opt.has_value()) {
-    return *opt;
-  }
-  ImageMetrics m{};
-  m.width = -1;
-  m.height = -1;
-  return m;
+  return handler.getMetrics("", options).value_or(ImageMetrics{});
 }
 
 ImageMetrics getImageMetricsFromBuffer(const uint8_t *buffer, size_t len,
@@ -403,6 +431,17 @@ ImageMetrics getImageMetricsFromBuffer(const uint8_t *buffer, size_t len,
                                        const std::string &task, int top_k,
                                        float conf_threshold,
                                        float nms_threshold) {
+  ImageAnalysisOptions options;
+  options.model_path = model_path;
+  options.task = task;
+  options.top_k = top_k;
+  options.conf_threshold = conf_threshold;
+  options.nms_threshold = nms_threshold;
+  return getImageMetricsFromBuffer(buffer, len, options);
+}
+
+ImageMetrics getImageMetricsFromBuffer(const uint8_t *buffer, size_t len,
+                                       const ImageAnalysisOptions &options) {
   if (!buffer || len == 0) {
     ImageMetrics m{};
     m.width = -1;
@@ -418,8 +457,7 @@ ImageMetrics getImageMetricsFromBuffer(const uint8_t *buffer, size_t len,
     m.height = -1;
     return m;
   }
-  return getImageMetrics(decoded, model_path, task, top_k, conf_threshold,
-                         nms_threshold);
+  return getImageMetrics(decoded, options);
 }
 
 std::vector<ImageMetrics>
@@ -427,6 +465,18 @@ getBatchImageMetrics(const std::vector<std::filesystem::path> &filenames,
                      const std::filesystem::path &model_path,
                      const std::string &task, int top_k, float conf_threshold,
                      float nms_threshold) {
+  ImageAnalysisOptions options;
+  options.model_path = model_path;
+  options.task = task;
+  options.top_k = top_k;
+  options.conf_threshold = conf_threshold;
+  options.nms_threshold = nms_threshold;
+  return getBatchImageMetrics(filenames, options);
+}
+
+std::vector<ImageMetrics>
+getBatchImageMetrics(const std::vector<std::filesystem::path> &filenames,
+                     const ImageAnalysisOptions &options) {
   const size_t maxConcurrency =
       std::max(1u, std::thread::hardware_concurrency());
 
@@ -439,63 +489,24 @@ getBatchImageMetrics(const std::vector<std::filesystem::path> &filenames,
     futures.reserve(end - start);
     for (size_t i = start; i < end; ++i) {
       const std::filesystem::path fn = filenames[i];
-      futures.push_back(
-          std::async(std::launch::async, [fn, model_path, task, top_k,
-                                          conf_threshold, nms_threshold]() {
-            auto loader = std::make_unique<OpenCVImageLoader>();
-            ImageHandler handler(std::move(loader));
-            auto opt = handler.getMetrics(fn, model_path, task, top_k,
-                                          conf_threshold, nms_threshold);
-            if (opt.has_value()) {
-              return *opt;
-            }
-            ImageMetrics m{};
-            m.width = -1;
-            m.height = -1;
-            return m;
-          }));
+      futures.push_back(std::async(std::launch::async, [fn, options]() {
+        auto loader = std::make_unique<OpenCVImageLoader>();
+        ImageHandler handler(std::move(loader));
+        auto opt = handler.getMetrics(fn, options);
+        if (opt.has_value()) {
+          return *opt;
+        }
+        ImageMetrics m{};
+        m.width = -1;
+        m.height = -1;
+        return m;
+      }));
     }
     for (size_t i = 0; i < futures.size(); ++i) {
       results[start + i] = futures[i].get();
     }
   }
   return results;
-}
-
-std::optional<ImageMetrics>
-ImageHandler::getMetrics(const std::filesystem::path &filename,
-                         const ImageAnalysisOptions &options) {
-  return getMetrics(filename, options.model_path, options.task, options.top_k,
-                    options.conf_threshold, options.nms_threshold);
-}
-
-std::optional<ImageMetrics>
-getImageMetrics(const std::filesystem::path &filename,
-                const ImageAnalysisOptions &options) {
-  return getImageMetrics(filename, options.model_path, options.task,
-                         options.top_k, options.conf_threshold,
-                         options.nms_threshold);
-}
-
-ImageMetrics getImageMetrics(const cv::Mat &mat,
-                             const ImageAnalysisOptions &options) {
-  return getImageMetrics(mat, options.model_path, options.task, options.top_k,
-                         options.conf_threshold, options.nms_threshold);
-}
-
-ImageMetrics getImageMetricsFromBuffer(const uint8_t *buffer, size_t len,
-                                       const ImageAnalysisOptions &options) {
-  return getImageMetricsFromBuffer(
-      buffer, len, options.model_path, options.task, options.top_k,
-      options.conf_threshold, options.nms_threshold);
-}
-
-std::vector<ImageMetrics>
-getBatchImageMetrics(const std::vector<std::filesystem::path> &filenames,
-                     const ImageAnalysisOptions &options) {
-  return getBatchImageMetrics(filenames, options.model_path, options.task,
-                              options.top_k, options.conf_threshold,
-                              options.nms_threshold);
 }
 
 } // namespace vidicant

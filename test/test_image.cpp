@@ -285,8 +285,23 @@ TEST(ImageHandlerTest, GetSymmetryScore) {
   ImageHandler handler(std::move(mockLoader));
   double sym = handler.getSymmetryScore("sym.jpg");
 
-  EXPECT_GE(sym, -1.0);
-  EXPECT_LE(sym, 1.0);
+  EXPECT_NEAR(sym, 1.0, 1e-4);
+}
+
+TEST(ImageHandlerTest, GetSymmetryScoreAsymmetric) {
+  auto mockLoader = std::make_unique<MockImageLoader>();
+  // Left half black (0), right half white (255)
+  cv::Mat image = cv::Mat::zeros(20, 20, CV_8UC1);
+  image(cv::Rect(10, 0, 10, 20)).setTo(255);
+  EXPECT_CALL(*mockLoader, imread(std::filesystem::path("asym.jpg")))
+      .WillOnce(::testing::Return(image));
+
+  ImageHandler handler(std::move(mockLoader));
+  double sym = handler.getSymmetryScore("asym.jpg");
+
+  // Vertical is symmetric (top matches bottom), horizontal is completely
+  // asymmetric (-1.0) Overall score = (-1.0 + 1.0) / 2 = 0.0
+  EXPECT_NEAR(sym, 0.0, 1e-4);
 }
 
 TEST(ImageHandlerTest, GetTextureFeatures) {
@@ -541,9 +556,10 @@ TEST(ImageGlobalTest, GetImageMetricsReal) {
 TEST(ImageGlobalTest, GetImageMetricsWithOptions) {
   ImageAnalysisOptions opts;
   opts.task = "quality";
-  opts.dominant_colors_k = 3;
+  opts.dominant_colors_k = 4;
   auto mOpt = vidicant::getImageMetrics("examples/sample.jpg", opts);
   ASSERT_TRUE(mOpt.has_value());
   EXPECT_GT(mOpt->width, 0);
   EXPECT_GT(mOpt->height, 0);
+  EXPECT_EQ(mOpt->dominant_colors.size(), 4U);
 }

@@ -7,8 +7,10 @@
 #include "vidicant/io/file_detector.hpp"
 #include <algorithm>
 #include <bitset>
+#include <future>
 #include <map>
 #include <numeric>
+#include <thread>
 #include <utility>
 
 namespace vidicant::core {
@@ -116,11 +118,25 @@ DedupeResult dedupeDirectory(const std::filesystem::path &dir, int threshold,
 
   std::sort(imageFiles.begin(), imageFiles.end());
 
-  std::vector<ImageHashItem> hashes;
-  hashes.reserve(imageFiles.size());
-  for (const auto &img : imageFiles) {
-    uint64_t h = vidicant::getImagePerceptualHash(img);
-    hashes.push_back({img, h});
+  const size_t maxConcurrency =
+      std::max(1u, std::thread::hardware_concurrency());
+
+  std::vector<ImageHashItem> hashes(imageFiles.size());
+  for (size_t start = 0; start < imageFiles.size(); start += maxConcurrency) {
+    const size_t end = std::min(start + maxConcurrency, imageFiles.size());
+    std::vector<std::future<ImageHashItem>> futures;
+    futures.reserve(end - start);
+    for (size_t i = start; i < end; ++i) {
+      const std::string path = imageFiles[i];
+      futures.push_back(
+          std::async(std::launch::async, [path]() -> ImageHashItem {
+            uint64_t h = vidicant::getImagePerceptualHash(path);
+            return {path, h};
+          }));
+    }
+    for (size_t i = 0; i < futures.size(); ++i) {
+      hashes[start + i] = futures[i].get();
+    }
   }
 
   return clusterDuplicateHashes(hashes, threshold);
