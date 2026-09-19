@@ -99,3 +99,26 @@ To ensure long-term stability and eliminate CPython ABI coupling, the native lib
 - **Universal ABI**: `ctypes` avoids compiling separate CPython wheels for every Python minor version (`cp311`, `cp312`, `cp313`, `cp314`).
 - **Zero Build Friction**: End users don't need a C++ compiler installed in their Python environment.
 - **Isolated Memory Model**: Clear allocation ownership using `vidicant_free_string`.
+
+### Principles of the C-ABI Boundary (FFI Design)
+
+Vidicant's cross-language bridge adheres to the fundamental constraints of platform C-ABIs:
+
+1. **No C++ Objects Across the Boundary**:
+    - C++ has no stable ABI; vtables, mangling, and stdlib types vary by compiler.
+    - Export only `extern "C"` functions exchanging primitive C types (`char*`, `uint8_t*`, `size_t`, `int`, `float`).
+
+2. **Explicit Memory Ownership ("Who Allocates Must Free")**:
+    - GCs cannot track native memory, and native `free()` cannot touch managed objects.
+    - Heap strings allocated in C++ must be freed via `vidicant_free_string()`.
+
+3. **Coarse-Grained JSON Serialization**:
+    - Chatty FFI calls add overhead and increase crash risk.
+    - Pass bulk buffers in one call; return structured results via JSON and standard `json.loads()`.
+
+4. **Guarding the "Crash Cliff"**:
+    - Native faults (`SIGSEGV`) bypass language `try/except` and terminate the host process.
+    - Validate inputs and handle errors inside C++ before crossing the FFI boundary.
+
+5. **Target Triple & Architecture Alignment**:
+    - Host process and shared library must share the identical target architecture and calling convention.
