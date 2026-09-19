@@ -6,6 +6,7 @@
 #include "vidicant/core/video_ops.hpp"
 #include <algorithm>
 #include <cmath>
+#include <numeric>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
 #include <sstream>
@@ -210,15 +211,19 @@ std::vector<int> VideoHandler::detectSceneChanges(double threshold,
 
   std::vector<int> sceneChanges;
   int frameIndex = stride;
+  int lastSceneFrame = -100;
+  constexpr int kSceneDebounce = 5;
+
   while (true) {
     if (stride > 1) {
-      if (stride <= 10) {
+      if (stride <= 10 || !loader_->seekFrame(frameIndex)) {
         for (int i = 0; i < stride - 1; ++i) {
-          if (!loader_->grabFrame())
-            break;
+          if (!loader_->grabFrame()) {
+            cv::Mat skipped = loader_->readFrame();
+            if (skipped.empty())
+              break;
+          }
         }
-      } else {
-        loader_->seekFrame(frameIndex);
       }
     }
 
@@ -233,8 +238,10 @@ std::vector<int> VideoHandler::detectSceneChanges(double threshold,
       cv::cvtColor(currFrame, grayCurr, cv::COLOR_BGR2GRAY);
 
     double motion = core::calculateFrameMotion(prevGray, grayCurr);
-    if (motion > threshold) {
+    if (motion > threshold &&
+        (frameIndex - lastSceneFrame >= kSceneDebounce * stride)) {
       sceneChanges.push_back(frameIndex);
+      lastSceneFrame = frameIndex;
     }
     prevGray = grayCurr;
     frameIndex += stride;
@@ -391,10 +398,19 @@ int VideoHandler::getBestThumbnailIndex() {
 
   cv::Mat frame = loader_->readFrame();
   while (!frame.empty()) {
-    if (frameIndex % stepSize == 0) {
-      core::evaluateThumbnailFrame(frame, frameIndex, bestScore, bestIndex);
+    core::evaluateThumbnailFrame(frame, frameIndex, bestScore, bestIndex);
+    frameIndex += stepSize;
+    if (stepSize > 1) {
+      if (!loader_->seekFrame(frameIndex)) {
+        for (int i = 0; i < stepSize - 1; ++i) {
+          if (!loader_->grabFrame()) {
+            cv::Mat skipped = loader_->readFrame();
+            if (skipped.empty())
+              break;
+          }
+        }
+      }
     }
-    frameIndex++;
     frame = loader_->readFrame();
   }
   return bestIndex;
@@ -452,12 +468,16 @@ std::optional<VideoMetrics> VideoHandler::getMetrics() {
 
 std::optional<VideoMetrics>
 VideoHandler::getMetrics(const VideoAnalysisOptions &options) {
+  if (!loader_ || (!filename_.empty() && !loader_->open(filename_)))
+    return std::nullopt;
+
   auto frameCountOpt = getFrameCount();
-  if (!frameCountOpt.has_value() || *frameCountOpt <= 0)
+  int totalFrames = frameCountOpt.value_or(0);
+  if (totalFrames <= 0)
     return std::nullopt;
 
   VideoMetrics m{};
-  m.frame_count = *frameCountOpt;
+  m.frame_count = totalFrames;
   m.fps = getFPS().value_or(0.0);
   auto res = getResolution();
   if (res.has_value()) {
@@ -465,8 +485,9 @@ VideoHandler::getMetrics(const VideoAnalysisOptions &options) {
     m.height = res->second;
   }
   m.duration = getDuration().value_or(0.0);
-  m.is_grayscale = isGrayscale();
-  m.average_brightness = getAverageBrightness();
+  m.has_audio_track = hasAudioTrack();
+  m.codec_fourcc = getCodecFourcc();
+  m.frame_rate_stability = getFrameRateStability();
 
   int effective_stride = std::max(1, options.sample_stride);
   if (options.sample_fps > 0.0 && m.fps > 0.0) {
@@ -474,32 +495,181 @@ VideoHandler::getMetrics(const VideoAnalysisOptions &options) {
         std::max(1, static_cast<int>(std::round(m.fps / options.sample_fps)));
   }
 
-  if (!m.is_grayscale) {
-    m.motion_score = getMotionScore(effective_stride);
-  }
-  m.dominant_colors = getDominantColors();
-  m.frame_rate_stability = getFrameRateStability();
-  m.color_consistency = getColorConsistency();
-  m.optical_flow_magnitude = getOpticalFlowMagnitude();
-  m.has_audio_track = hasAudioTrack();
+  // Open loader to start streaming frames
+  if (!filename_.empty() && !loader_->open(filename_))
+    return std::nullopt;
 
+  cv::Mat firstFrame = loader_->readFrame();
+  if (firstFrame.empty())
+    return std::nullopt;
+
+  if (m.width <= 0)
+    m.width = firstFrame.cols;
+  if (m.height <= 0)
+    m.height = firstFrame.rows;
+  m.is_grayscale = (firstFrame.channels() == 1);
+
+  // Optical flow collection (first few frames)
+  std::vector<cv::Mat> optFlowFrames;
+  optFlowFrames.push_back(firstFrame.clone());
+
+  // Dominant color sampling: sample up to 5 frames throughout video
+  std::vector<cv::Mat> dominantColorFrames;
+  dominantColorFrames.push_back(firstFrame.clone());
+  int dominantColorInterval = std::max(1, totalFrames / 5);
+
+  // Brightness curve & color consistency
+  std::vector<double> brightnesses;
+  auto getFrameBrightness = [](const cv::Mat &f) -> double {
+    cv::Scalar mean = cv::mean(f);
+    return (f.channels() == 1) ? mean[0] : (mean[0] + mean[1] + mean[2]) / 3.0;
+  };
+  brightnesses.push_back(getFrameBrightness(firstFrame));
+
+  // Best thumbnail
+  int bestThumbnailIndex = 0;
+  double bestThumbnailScore = -1.0;
+  int thumbnailStepSize = std::max(1, totalFrames / 20);
+  core::evaluateThumbnailFrame(firstFrame, 0, bestThumbnailScore,
+                               bestThumbnailIndex);
+
+  // Scene changes & motion tracking
   std::vector<int> sceneChanges;
+  double totalMotion = 0.0;
+  int motionPairs = 0;
+  cv::Mat prevGray;
+  if (firstFrame.channels() == 1)
+    prevGray = firstFrame;
+  else
+    cv::cvtColor(firstFrame, prevGray, cv::COLOR_BGR2GRAY);
+
+  // Scene thumbnail export setup
+  bool exportScenes = !options.export_scenes_dir.empty();
+  if (exportScenes) {
+    std::error_code ec;
+    std::filesystem::create_directories(options.export_scenes_dir, ec);
+  }
+  std::string stem = filename_.stem().string();
+  if (stem.empty())
+    stem = "video";
+
+  int frameIndex = effective_stride;
+  int lastSceneFrame = -100;
+  constexpr int kSceneDebounce = 5;
+
+  while (true) {
+    if (effective_stride > 1) {
+      bool ok = true;
+      for (int i = 0; i < effective_stride - 1; ++i) {
+        if (!loader_->grabFrame()) {
+          cv::Mat skipped = loader_->readFrame();
+          if (skipped.empty()) {
+            ok = false;
+            break;
+          }
+        }
+      }
+      if (!ok)
+        break;
+    }
+
+    cv::Mat currFrame = loader_->readFrame();
+    if (currFrame.empty())
+      break;
+
+    // Optical flow: first kOpticalFlowMaxPairs frames
+    if (static_cast<int>(optFlowFrames.size()) <= core::kOpticalFlowMaxPairs) {
+      optFlowFrames.push_back(currFrame.clone());
+    }
+
+    // Dominant colors: sample up to 5 frames
+    if (dominantColorFrames.size() < 5 &&
+        frameIndex % dominantColorInterval == 0) {
+      dominantColorFrames.push_back(currFrame.clone());
+    }
+
+    // Brightness curve: up to kMaxBrightnessCurveFrames
+    if (static_cast<int>(brightnesses.size()) <
+        core::kMaxBrightnessCurveFrames) {
+      brightnesses.push_back(getFrameBrightness(currFrame));
+    }
+
+    // Thumbnail evaluation
+    if (frameIndex % thumbnailStepSize == 0) {
+      core::evaluateThumbnailFrame(currFrame, frameIndex, bestThumbnailScore,
+                                   bestThumbnailIndex);
+    }
+
+    // Motion & scene detection
+    if (!m.is_grayscale) {
+      cv::Mat currGray;
+      if (currFrame.channels() == 1)
+        currGray = currFrame;
+      else
+        cv::cvtColor(currFrame, currGray, cv::COLOR_BGR2GRAY);
+
+      double motion = core::calculateFrameMotion(prevGray, currGray);
+      if (motionPairs < options.max_motion_frames) {
+        totalMotion += motion;
+        motionPairs++;
+      }
+
+      if (motion > options.scene_change_threshold &&
+          (frameIndex - lastSceneFrame >= kSceneDebounce * effective_stride)) {
+        sceneChanges.push_back(frameIndex);
+        lastSceneFrame = frameIndex;
+
+        if (exportScenes) {
+          cv::Mat laplacian;
+          cv::Laplacian(currGray, laplacian, CV_64F);
+          cv::Scalar meanVal, stddevVal;
+          cv::meanStdDev(laplacian, meanVal, stddevVal);
+          double sharpness = stddevVal[0] * stddevVal[0];
+
+          std::ostringstream filenameStream;
+          filenameStream << stem << "_scene_" << sceneChanges.size()
+                         << "_frame_" << frameIndex << ".jpg";
+          std::filesystem::path thumbPath =
+              options.export_scenes_dir / filenameStream.str();
+          if (cv::imwrite(thumbPath.string(), currFrame)) {
+            SceneThumbnail st;
+            st.scene_index = static_cast<int>(sceneChanges.size());
+            st.frame_index = frameIndex;
+            st.timestamp_seconds =
+                (m.fps > 0.0) ? (static_cast<double>(frameIndex) / m.fps) : 0.0;
+            st.thumbnail_path = thumbPath.string();
+            st.sharpness_score = sharpness;
+            m.scene_thumbnails.push_back(st);
+          }
+        }
+      }
+      prevGray = currGray;
+    }
+
+    frameIndex += effective_stride;
+  }
+
+  // Populate aggregated metrics
+  m.temporal_brightness_curve = brightnesses;
+  if (!brightnesses.empty()) {
+    double sum = std::accumulate(brightnesses.begin(), brightnesses.end(), 0.0);
+    m.average_brightness = sum / brightnesses.size();
+  }
+  m.flicker_score = core::calculateFlickerScore(brightnesses);
+  m.color_consistency = core::calculateColorConsistency(brightnesses);
+  m.best_thumbnail_frame = bestThumbnailIndex;
+  m.motion_score = (motionPairs > 0) ? (totalMotion / motionPairs) : 0.0;
+  m.dominant_colors = core::extractVideoDominantColors(
+      dominantColorFrames, options.dominant_colors_k);
+  m.optical_flow_magnitude = core::calculateOpticalFlowMagnitude(
+      optFlowFrames, core::kOpticalFlowMaxPairs);
+
+  m.scene_changes = sceneChanges;
   if (!m.is_grayscale) {
-    sceneChanges =
-        detectSceneChanges(options.scene_change_threshold, effective_stride);
     m.shot_length_stats =
         core::calculateShotLengthStats(sceneChanges, m.frame_count);
   }
 
-  if (!options.export_scenes_dir.empty() && !sceneChanges.empty()) {
-    m.scene_thumbnails =
-        exportSceneThumbnails(sceneChanges, options.export_scenes_dir);
-  }
-
-  m.flicker_score = getFlickerScore();
-  m.best_thumbnail_frame = getBestThumbnailIndex();
-  m.temporal_brightness_curve = getTemporalBrightnessCurve();
-  m.codec_fourcc = getCodecFourcc();
   return m;
 }
 

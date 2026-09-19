@@ -122,6 +122,7 @@ struct VideoMetrics {
   int best_thumbnail_frame{0};
   std::vector<double> temporal_brightness_curve;
   std::string codec_fourcc;
+  std::vector<int> scene_changes;
   std::vector<SceneThumbnail> scene_thumbnails;
 };
 

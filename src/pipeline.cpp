@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <filesystem>
 #include <nlohmann/json.hpp>
+#include <opencv2/imgcodecs.hpp>
 #include <string>
 
 namespace vidicant {
@@ -155,7 +156,10 @@ nlohmann::json processVideo(const std::filesystem::path &filename,
   }
 
   std::string imageOutput = filename.stem().string() + "_first_frame.jpg";
-  bool saved = vidicant::saveFirstFrameAsImage(filename, imageOutput);
+  bool saved = false;
+  if (!firstFrame.empty()) {
+    saved = cv::imwrite(imageOutput, firstFrame);
+  }
   result["first_frame_saved"] = saved;
   if (saved) {
     result["first_frame_path"] = imageOutput;
@@ -183,15 +187,7 @@ nlohmann::json processVideo(const std::filesystem::path &filename,
     result["dominant_colors"].push_back({color[0], color[1], color[2]});
   }
 
-  int effective_stride = std::max(1, options.sample_stride);
-  if (options.sample_fps > 0.0 && m.fps > 0.0) {
-    effective_stride =
-        std::max(1, static_cast<int>(std::round(m.fps / options.sample_fps)));
-  }
-
-  auto sceneChanges = vidicant::detectVideoSceneChanges(
-      filename, options.scene_change_threshold, effective_stride);
-  result["scene_changes"] = sceneChanges;
+  result["scene_changes"] = m.scene_changes;
 
   result["scene_thumbnails"] = nlohmann::json::array();
   for (const auto &st : m.scene_thumbnails) {

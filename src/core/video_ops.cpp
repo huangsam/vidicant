@@ -123,15 +123,26 @@ double calculateOpticalFlowMagnitude(const std::vector<cv::Mat> &frames,
     else
       cv::cvtColor(frames[i + 1], currGray, cv::COLOR_BGR2GRAY);
 
+    cv::Mat smallPrev, smallCurr;
+    double scale = 1.0;
+    if (prevGray.cols > 320 || prevGray.rows > 320) {
+      scale = 320.0 / std::max(prevGray.cols, prevGray.rows);
+      cv::resize(prevGray, smallPrev, cv::Size(), scale, scale, cv::INTER_AREA);
+      cv::resize(currGray, smallCurr, cv::Size(), scale, scale, cv::INTER_AREA);
+    } else {
+      smallPrev = prevGray;
+      smallCurr = currGray;
+    }
+
     cv::Mat flow;
-    cv::calcOpticalFlowFarneback(prevGray, currGray, flow, 0.5, 3, 15, 3, 5,
+    cv::calcOpticalFlowFarneback(smallPrev, smallCurr, flow, 0.5, 3, 15, 3, 5,
                                  1.2, 0);
 
     std::vector<cv::Mat> flowParts(2);
     cv::split(flow, flowParts);
     cv::Mat magnitude, angle;
     cv::cartToPolar(flowParts[0], flowParts[1], magnitude, angle);
-    totalMagnitude += cv::mean(magnitude)[0];
+    totalMagnitude += cv::mean(magnitude)[0] / scale;
     pairCount++;
   }
 
