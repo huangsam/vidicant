@@ -47,4 +47,3 @@ python3 scripts/generate_compile_commands.py
 - [TODO.md](TODO.md)
 - [docs/use_cases.md](docs/use_cases.md)
 - [docs/architecture_and_bindings.md](docs/architecture_and_bindings.md)
-- [docs/apple_frameworks_comparison.md](docs/apple_frameworks_comparison.md)

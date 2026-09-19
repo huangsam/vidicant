@@ -220,7 +220,7 @@ async def analyze_image(file: UploadFile):
 
 ---
 
-## 6. Large-Scale Catalog Deduplication (`vidicant dedupe`)
+## 6. Large-Scale Catalog Deduplication (`vidicant_cli dedupe`)
 
 ### Problem
 Storage bloat and catalog spam caused by mirrored, resized, watermarked, or slightly modified re-uploads.
@@ -236,10 +236,10 @@ Use Vidicant's CLI or Python API to scan and cluster entire asset directories in
 
 ```bash
 # Scan a directory and find near-duplicate clusters (Hamming distance <= 5)
-vidicant dedupe /path/to/media/ --threshold 5
+vidicant_cli dedupe /path/to/media/ --threshold 5
 
 # Stream real-time image analytics into analytics pipelines
-vidicant stream /path/to/images/ --format jsonl | jq '.path, .sharpness_score'
+vidicant_cli /path/to/images/ --format jsonl | jq '.path, .sharpness_score'
 ```
 
 ---
