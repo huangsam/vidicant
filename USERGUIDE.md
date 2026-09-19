@@ -102,33 +102,6 @@ fast_video = vidicant.process_video("clip.mp4", stride=2, export_scenes_dir="./s
 
 ---
 
-### Utility Functions
-
-#### File Type Detection
-Inspects file extensions and magic byte headers:
-
-```python
-import vidicant
-
-vidicant.is_image_file("sample.png")  # True
-vidicant.is_video_file("sample.mp4")  # True
-```
-
-#### Neural Model Management
-Manages ONNX model downloads and local caching (`~/.cache/vidicant/models/`):
-
-```python
-import vidicant
-
-# Path to cached default model for a task
-path = vidicant.get_default_model_path(task="classify")
-
-# Ensure remote model exists locally; downloads if necessary
-local_path = vidicant.ensure_model("https://example.com/model.onnx")
-```
-
----
-
 ## Command Line Interface (`vidicant_cli`)
 
 ### Basic Analysis & Output Formats
@@ -182,15 +155,3 @@ vidicant_cli dedupe ./photos/ --threshold 5
 vidicant_cli dedupe ./photos/ --threshold 5 --format json -o duplicates.json
 vidicant_cli dedupe ./photos/ --threshold 5 --format csv -o duplicates.csv
 ```
-
----
-
-## Troubleshooting & Tips
-
-| Issue | Resolution |
-|-------|------------|
-| Library not found (`libvidicant`) | Run `zig build` to generate `libvidicant` in `zig-out/lib/` or `zig build -Dinstall-to-pkg`. |
-| Missing OpenCV headers | macOS: `brew install opencv`; Linux: `sudo apt install libopencv-dev`. |
-| Missing GTest/GMock headers | macOS: `brew install googletest`; Linux: `sudo apt install libgtest-dev libgmock-dev`. |
-| First-time ONNX download | `ensure_model()` caches models in `~/.cache/vidicant/models/`. Set `VIDICANT_MODEL_PATH` to override. |
-| Windows native compilation | Use **WSL2** (Ubuntu recommended) with standard Linux build steps. |
