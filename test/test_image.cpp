@@ -102,7 +102,7 @@ TEST(ImageHandlerTest, GetEdgeCount) {
 
 TEST(ImageHandlerTest, GetDominantColors) {
   auto mockLoader = std::make_unique<MockImageLoader>();
-  cv::Mat image(10, 10, CV_8UC3, cv::Scalar(255, 0, 0)); // Red image
+  cv::Mat image(10, 10, CV_8UC3, cv::Scalar(0, 0, 255)); // Red image in BGR
   EXPECT_CALL(*mockLoader, imread(std::filesystem::path("colors.jpg")))
       .WillOnce(::testing::Return(image));
 
@@ -113,6 +113,37 @@ TEST(ImageHandlerTest, GetDominantColors) {
   EXPECT_NEAR(colors[0][0], 255.0, 10.0); // Red channel
   EXPECT_NEAR(colors[0][1], 0.0, 10.0);   // Green
   EXPECT_NEAR(colors[0][2], 0.0, 10.0);   // Blue
+}
+
+TEST(ImageHandlerTest, GetDominantColorsGrayscale) {
+  auto mockLoader = std::make_unique<MockImageLoader>();
+  cv::Mat image(10, 10, CV_8UC1, cv::Scalar(180));
+  EXPECT_CALL(*mockLoader, imread(std::filesystem::path("gray_colors.jpg")))
+      .WillOnce(::testing::Return(image));
+
+  ImageHandler handler(std::move(mockLoader));
+  auto colors = handler.getDominantColors("gray_colors.jpg", 1);
+
+  EXPECT_EQ(colors.size(), 1U);
+  EXPECT_NEAR(colors[0][0], 180.0, 5.0);
+  EXPECT_NEAR(colors[0][1], 180.0, 5.0);
+  EXPECT_NEAR(colors[0][2], 180.0, 5.0);
+}
+
+TEST(ImageHandlerTest, GetDominantColorsSubK) {
+  auto mockLoader = std::make_unique<MockImageLoader>();
+  cv::Mat image(1, 1, CV_8UC3, cv::Scalar(10, 20, 30));
+  EXPECT_CALL(*mockLoader, imread(std::filesystem::path("tiny.jpg")))
+      .WillOnce(::testing::Return(image));
+
+  ImageHandler handler(std::move(mockLoader));
+  // Request 5 clusters on a 1-pixel image
+  auto colors = handler.getDominantColors("tiny.jpg", 5);
+
+  EXPECT_EQ(colors.size(), 1U);
+  EXPECT_NEAR(colors[0][0], 30.0, 1.0); // R
+  EXPECT_NEAR(colors[0][1], 20.0, 1.0); // G
+  EXPECT_NEAR(colors[0][2], 10.0, 1.0); // B
 }
 
 TEST(ImageHandlerTest, GetBlurScore) {

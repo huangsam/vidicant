@@ -8,6 +8,21 @@
 
 namespace vidicant::core {
 
+namespace {
+cv::Mat toGrayscale(const cv::Mat &image) {
+  if (image.empty())
+    return cv::Mat();
+  if (image.channels() == 1)
+    return image;
+  cv::Mat gray;
+  if (image.channels() == 4)
+    cv::cvtColor(image, gray, cv::COLOR_BGRA2GRAY);
+  else
+    cv::cvtColor(image, gray, cv::COLOR_BGR2GRAY);
+  return gray;
+}
+} // namespace
+
 double calculateAverageBrightness(const cv::Mat &image) {
   if (image.empty())
     return -1.0;
@@ -21,20 +36,62 @@ std::vector<std::array<double, 3>> extractDominantColors(const cv::Mat &image,
                                                          int k) {
   if (image.empty() || k <= 0)
     return {};
+
+  // Standardize to 3-channel BGR
+  cv::Mat bgr;
+  if (image.channels() == 1) {
+    cv::cvtColor(image, bgr, cv::COLOR_GRAY2BGR);
+  } else if (image.channels() == 4) {
+    cv::cvtColor(image, bgr, cv::COLOR_BGRA2BGR);
+  } else {
+    bgr = image;
+  }
+
+  // Convert to RGB so dominant colors match documentation
+  cv::Mat rgb;
+  cv::cvtColor(bgr, rgb, cv::COLOR_BGR2RGB);
+
+  // Downsample to max 128x128 for efficient k-means clustering
+  cv::Mat sampleImg;
+  if (rgb.rows > 128 || rgb.cols > 128) {
+    cv::resize(rgb, sampleImg, cv::Size(128, 128), 0, 0, cv::INTER_AREA);
+  } else {
+    sampleImg = rgb;
+  }
+
+  int totalPixels = static_cast<int>(sampleImg.total());
+  if (totalPixels <= 0)
+    return {};
+
+  int effectiveK = std::min(k, totalPixels);
+  if (totalPixels <= effectiveK) {
+    std::vector<std::array<double, 3>> dominantColors;
+    dominantColors.reserve(totalPixels);
+    for (int r = 0; r < sampleImg.rows; ++r) {
+      for (int c = 0; c < sampleImg.cols; ++c) {
+        cv::Vec3b p = sampleImg.at<cv::Vec3b>(r, c);
+        dominantColors.push_back({static_cast<double>(p[0]),
+                                  static_cast<double>(p[1]),
+                                  static_cast<double>(p[2])});
+      }
+    }
+    return dominantColors;
+  }
+
   cv::Mat data;
-  image.convertTo(data, CV_32F);
-  data = data.reshape(1, static_cast<int>(data.total()));
+  sampleImg.convertTo(data, CV_32F);
+  data = data.reshape(1, totalPixels);
 
   std::vector<int> labels;
   cv::Mat centers;
-  cv::kmeans(data, k, labels,
+  cv::kmeans(data, effectiveK, labels,
              cv::TermCriteria(cv::TermCriteria::EPS + cv::TermCriteria::COUNT,
                               10, 1.0),
              3, cv::KMEANS_PP_CENTERS, centers);
 
   std::vector<std::array<double, 3>> dominantColors;
-  dominantColors.reserve(k);
-  for (int i = 0; i < k; ++i) {
+  dominantColors.reserve(effectiveK);
+  for (int i = 0; i < effectiveK; ++i) {
     dominantColors.push_back({centers.at<float>(i, 0), centers.at<float>(i, 1),
                               centers.at<float>(i, 2)});
   }
@@ -44,12 +101,7 @@ std::vector<std::array<double, 3>> extractDominantColors(const cv::Mat &image,
 double calculateContrastRatio(const cv::Mat &image) {
   if (image.empty())
     return -1.0;
-  cv::Mat gray;
-  if (image.channels() == 1) {
-    gray = image;
-  } else {
-    cv::cvtColor(image, gray, cv::COLOR_BGR2GRAY);
-  }
+  cv::Mat gray = toGrayscale(image);
   double minVal = 0.0, maxVal = 0.0;
   cv::minMaxLoc(gray, &minVal, &maxVal);
   return maxVal > 0 ? maxVal / (minVal + 1e-6) : 0.0;
@@ -58,8 +110,12 @@ double calculateContrastRatio(const cv::Mat &image) {
 double calculateSaturationLevel(const cv::Mat &image) {
   if (image.empty() || image.channels() < 3)
     return -1.0;
+  cv::Mat bgr = image;
+  if (image.channels() == 4) {
+    cv::cvtColor(image, bgr, cv::COLOR_BGRA2BGR);
+  }
   cv::Mat hsv;
-  cv::cvtColor(image, hsv, cv::COLOR_BGR2HSV);
+  cv::cvtColor(bgr, hsv, cv::COLOR_BGR2HSV);
   cv::Scalar mean = cv::mean(hsv);
   return mean[1];
 }
@@ -98,8 +154,12 @@ double calculateWhiteBalanceScore(const cv::Mat &image) {
 std::vector<int> calculateHueHistogram(const cv::Mat &image) {
   if (image.empty() || image.channels() < 3)
     return {};
+  cv::Mat bgr = image;
+  if (image.channels() == 4) {
+    cv::cvtColor(image, bgr, cv::COLOR_BGRA2BGR);
+  }
   cv::Mat hsv;
-  cv::cvtColor(image, hsv, cv::COLOR_BGR2HSV);
+  cv::cvtColor(bgr, hsv, cv::COLOR_BGR2HSV);
   std::vector<cv::Mat> channels;
   cv::split(hsv, channels);
   const cv::Mat &hue = channels[0];
@@ -117,12 +177,8 @@ std::vector<int> calculateHueHistogram(const cv::Mat &image) {
 int calculateEdgeCount(const cv::Mat &image) {
   if (image.empty())
     return -1;
-  cv::Mat gray, edges;
-  if (image.channels() == 1) {
-    gray = image;
-  } else {
-    cv::cvtColor(image, gray, cv::COLOR_BGR2GRAY);
-  }
+  cv::Mat gray = toGrayscale(image);
+  cv::Mat edges;
   cv::Canny(gray, edges, 100, 200);
   return cv::countNonZero(edges);
 }
@@ -130,12 +186,8 @@ int calculateEdgeCount(const cv::Mat &image) {
 double calculateBlurScore(const cv::Mat &image) {
   if (image.empty())
     return -1.0;
-  cv::Mat gray, laplacian;
-  if (image.channels() == 1) {
-    gray = image;
-  } else {
-    cv::cvtColor(image, gray, cv::COLOR_BGR2GRAY);
-  }
+  cv::Mat gray = toGrayscale(image);
+  cv::Mat laplacian;
   cv::Laplacian(gray, laplacian, CV_64F);
   cv::Scalar mean, stddev;
   cv::meanStdDev(laplacian, mean, stddev);
@@ -145,12 +197,7 @@ double calculateBlurScore(const cv::Mat &image) {
 double calculateEntropy(const cv::Mat &image) {
   if (image.empty())
     return -1.0;
-  cv::Mat gray;
-  if (image.channels() == 1) {
-    gray = image;
-  } else {
-    cv::cvtColor(image, gray, cv::COLOR_BGR2GRAY);
-  }
+  cv::Mat gray = toGrayscale(image);
   cv::Mat hist;
   int histSize = 256;
   float range[] = {0, 256};
@@ -170,12 +217,7 @@ double calculateEntropy(const cv::Mat &image) {
 double calculateNoiseEstimate(const cv::Mat &image) {
   if (image.empty())
     return -1.0;
-  cv::Mat gray;
-  if (image.channels() == 1) {
-    gray = image;
-  } else {
-    cv::cvtColor(image, gray, cv::COLOR_BGR2GRAY);
-  }
+  cv::Mat gray = toGrayscale(image);
   int m = gray.rows, n = gray.cols;
   if (m <= 2 || n <= 2)
     return 0.0;
@@ -192,12 +234,7 @@ double calculateNoiseEstimate(const cv::Mat &image) {
 double calculateSymmetryScore(const cv::Mat &image) {
   if (image.empty())
     return -1.0;
-  cv::Mat gray;
-  if (image.channels() == 1) {
-    gray = image;
-  } else {
-    cv::cvtColor(image, gray, cv::COLOR_BGR2GRAY);
-  }
+  cv::Mat gray = toGrayscale(image);
 
   int histSize = 256;
   float range[] = {0, 256};
@@ -239,12 +276,7 @@ double calculateSymmetryScore(const cv::Mat &image) {
 TextureFeatures calculateTextureFeatures(const cv::Mat &image) {
   if (image.empty())
     return {-1.0, -1.0, -1.0, -1.0};
-  cv::Mat gray;
-  if (image.channels() == 1) {
-    gray = image;
-  } else {
-    cv::cvtColor(image, gray, cv::COLOR_BGR2GRAY);
-  }
+  cv::Mat gray = toGrayscale(image);
 
   cv::Mat workImg = gray;
   if (gray.rows > 256 || gray.cols > 256) {
@@ -307,12 +339,7 @@ TextureFeatures calculateTextureFeatures(const cv::Mat &image) {
 double calculateSharpnessScore(const cv::Mat &image) {
   if (image.empty())
     return -1.0;
-  cv::Mat gray;
-  if (image.channels() == 1) {
-    gray = image;
-  } else {
-    cv::cvtColor(image, gray, cv::COLOR_BGR2GRAY);
-  }
+  cv::Mat gray = toGrayscale(image);
   cv::Mat gradX, gradY, magnitude;
   cv::Sobel(gray, gradX, CV_64F, 1, 0);
   cv::Sobel(gray, gradY, CV_64F, 0, 1);
@@ -323,12 +350,7 @@ double calculateSharpnessScore(const cv::Mat &image) {
 std::string classifyNoiseType(const cv::Mat &image) {
   if (image.empty())
     return "";
-  cv::Mat gray;
-  if (image.channels() == 1) {
-    gray = image;
-  } else {
-    cv::cvtColor(image, gray, cv::COLOR_BGR2GRAY);
-  }
+  cv::Mat gray = toGrayscale(image);
 
   cv::Mat medianFiltered;
   cv::medianBlur(gray, medianFiltered, 3);
@@ -353,12 +375,7 @@ std::string classifyNoiseType(const cv::Mat &image) {
 uint64_t calculatePerceptualHash(const cv::Mat &image) {
   if (image.empty())
     return 0;
-  cv::Mat gray;
-  if (image.channels() == 1) {
-    gray = image;
-  } else {
-    cv::cvtColor(image, gray, cv::COLOR_BGR2GRAY);
-  }
+  cv::Mat gray = toGrayscale(image);
 
   cv::Mat resized;
   cv::resize(gray, resized, cv::Size(9, 8));
@@ -378,15 +395,8 @@ double calculateSSIM(const cv::Mat &img1, const cv::Mat &img2) {
   if (img1.empty() || img2.empty())
     return -1.0;
 
-  cv::Mat gray1, gray2;
-  if (img1.channels() > 1)
-    cv::cvtColor(img1, gray1, cv::COLOR_BGR2GRAY);
-  else
-    gray1 = img1;
-  if (img2.channels() > 1)
-    cv::cvtColor(img2, gray2, cv::COLOR_BGR2GRAY);
-  else
-    gray2 = img2;
+  cv::Mat gray1 = toGrayscale(img1);
+  cv::Mat gray2 = toGrayscale(img2);
 
   if (gray1.size() != gray2.size()) {
     cv::resize(gray2, gray2, gray1.size());

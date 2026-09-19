@@ -23,33 +23,65 @@ extractVideoDominantColors(const std::vector<cv::Mat> &frames, int k) {
   if (frames.empty() || k <= 0)
     return {};
 
-  cv::Mat data;
+  std::vector<cv::Mat> sampledMats;
+  int totalPixels = 0;
   for (const auto &f : frames) {
     if (f.empty())
       continue;
-    cv::Mat temp;
-    f.convertTo(temp, CV_32F);
-    temp = temp.reshape(1, static_cast<int>(temp.total()));
-    if (data.empty()) {
-      data = temp;
+    cv::Mat rgb;
+    if (f.channels() == 1) {
+      cv::cvtColor(f, rgb, cv::COLOR_GRAY2RGB);
+    } else if (f.channels() == 4) {
+      cv::cvtColor(f, rgb, cv::COLOR_BGRA2RGB);
     } else {
-      cv::vconcat(data, temp, data);
+      cv::cvtColor(f, rgb, cv::COLOR_BGR2RGB);
     }
+
+    cv::Mat small;
+    if (rgb.rows > 64 || rgb.cols > 64) {
+      cv::resize(rgb, small, cv::Size(64, 64), 0, 0, cv::INTER_AREA);
+    } else {
+      small = rgb;
+    }
+
+    cv::Mat floatMat;
+    small.convertTo(floatMat, CV_32F);
+    floatMat = floatMat.reshape(1, static_cast<int>(floatMat.total()));
+    totalPixels += floatMat.rows;
+    sampledMats.push_back(floatMat);
   }
 
-  if (data.empty())
+  if (sampledMats.empty() || totalPixels <= 0)
     return {};
+
+  cv::Mat data(totalPixels, 3, CV_32F);
+  int currentRow = 0;
+  for (const auto &m : sampledMats) {
+    m.copyTo(data.rowRange(currentRow, currentRow + m.rows));
+    currentRow += m.rows;
+  }
+
+  int effectiveK = std::min(k, totalPixels);
+  if (totalPixels <= effectiveK) {
+    std::vector<std::array<double, 3>> dominantColors;
+    dominantColors.reserve(totalPixels);
+    for (int i = 0; i < totalPixels; ++i) {
+      dominantColors.push_back(
+          {data.at<float>(i, 0), data.at<float>(i, 1), data.at<float>(i, 2)});
+    }
+    return dominantColors;
+  }
 
   std::vector<int> labels;
   cv::Mat centers;
-  cv::kmeans(data, k, labels,
+  cv::kmeans(data, effectiveK, labels,
              cv::TermCriteria(cv::TermCriteria::EPS + cv::TermCriteria::COUNT,
                               10, 1.0),
              3, cv::KMEANS_PP_CENTERS, centers);
 
   std::vector<std::array<double, 3>> dominantColors;
-  dominantColors.reserve(k);
-  for (int i = 0; i < k; ++i) {
+  dominantColors.reserve(effectiveK);
+  for (int i = 0; i < effectiveK; ++i) {
     dominantColors.push_back({centers.at<float>(i, 0), centers.at<float>(i, 1),
                               centers.at<float>(i, 2)});
   }

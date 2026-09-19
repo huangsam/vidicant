@@ -15,7 +15,14 @@
 namespace vidicant {
 
 cv::Mat OpenCVImageLoader::imread(const std::filesystem::path &filename) {
-  return cv::imread(filename.string());
+  cv::Mat img = cv::imread(filename.string(), cv::IMREAD_UNCHANGED);
+  if (!img.empty() && img.depth() != CV_8U) {
+    double minVal = 0.0, maxVal = 0.0;
+    cv::minMaxLoc(img, &minVal, &maxVal);
+    double scale = (maxVal > minVal) ? (255.0 / (maxVal - minVal)) : 1.0;
+    img.convertTo(img, CV_8U, scale, -minVal * scale);
+  }
+  return img;
 }
 
 MemoryImageLoader::MemoryImageLoader(cv::Mat image)
