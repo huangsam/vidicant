@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Corpus-scale analysis and benchmark script for Vidicant."""
 
 from __future__ import annotations

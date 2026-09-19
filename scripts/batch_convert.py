@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Batch convert Y4M test sequences to JPG and MP4 test fixtures."""
 
 from __future__ import annotations
