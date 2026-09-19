@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <iostream>
 #include <limits>
+#include <memory>
 #include <mutex>
 #include <opencv2/dnn.hpp>
 #include <opencv2/imgproc.hpp>
@@ -15,8 +16,14 @@
 
 namespace vidicant::dnn {
 
-static std::mutex g_model_mutex;
-static std::unordered_map<std::string, cv::dnn::Net> g_model_cache;
+struct CachedModel {
+  cv::dnn::Net net;
+  std::mutex mutex;
+};
+
+static std::mutex g_cache_mutex;
+static std::unordered_map<std::string, std::shared_ptr<CachedModel>>
+    g_model_cache;
 
 static void decodeClassification(const cv::Mat &prob, ImageMetrics &metrics,
                                  int top_k) {
@@ -264,13 +271,15 @@ static void decodeQuality(const cv::Mat &prob, ImageMetrics &metrics) {
       expProb /= sumExp[0];
     }
     double mean_score = 0.0;
+    const float *pData = expProb.ptr<float>();
     for (int i = 0; i < 10; ++i) {
-      mean_score += (i + 1) * expProb.at<float>(0, i);
+      mean_score += (i + 1) * pData[i];
     }
-    aesthetic_score = mean_score;
+    aesthetic_score = std::clamp(mean_score, 1.0, 10.0);
     technical_score = std::clamp((mean_score - 1.0) / 9.0, 0.0, 1.0);
   } else if (prob.total() == 1) {
-    aesthetic_score = static_cast<double>(prob.at<float>(0, 0));
+    aesthetic_score = static_cast<double>(*prob.ptr<float>());
+    aesthetic_score = std::clamp(aesthetic_score, 0.0, 10.0);
     technical_score = std::clamp((aesthetic_score - 1.0) / 9.0, 0.0, 1.0);
   } else {
     double sum = 0.0;
@@ -278,8 +287,13 @@ static void decodeQuality(const cv::Mat &prob, ImageMetrics &metrics) {
     for (size_t i = 0; i < prob.total(); ++i) {
       sum += data[i];
     }
-    aesthetic_score = sum / prob.total();
-    technical_score = std::clamp(aesthetic_score, 0.0, 1.0);
+    double avg = sum / prob.total();
+    if (avg < 0.0) {
+      aesthetic_score = std::clamp((avg + 1.0) * 5.0, 0.0, 10.0);
+    } else {
+      aesthetic_score = std::clamp(avg, 0.0, 10.0);
+    }
+    technical_score = std::clamp(aesthetic_score / 10.0, 0.0, 1.0);
   }
 
   metrics.aesthetic_score = aesthetic_score;
@@ -298,20 +312,22 @@ void DnnEngine::runInference(const cv::Mat &image,
   }
 
   try {
-    cv::dnn::Net net;
+    std::shared_ptr<CachedModel> modelEntry;
     {
-      std::lock_guard<std::mutex> lock(g_model_mutex);
+      std::lock_guard<std::mutex> lock(g_cache_mutex);
       auto it = g_model_cache.find(model_path);
       if (it != g_model_cache.end()) {
-        net = it->second;
+        modelEntry = it->second;
       } else {
-        net = cv::dnn::readNetFromONNX(model_path);
-        if (net.empty()) {
+        cv::dnn::Net loadedNet = cv::dnn::readNetFromONNX(model_path);
+        if (loadedNet.empty()) {
           metrics.ml_evaluated = false;
           return;
         }
-        net.setPreferableBackend(cv::dnn::DNN_BACKEND_DEFAULT);
-        g_model_cache[model_path] = net;
+        loadedNet.setPreferableBackend(cv::dnn::DNN_BACKEND_DEFAULT);
+        modelEntry = std::make_shared<CachedModel>();
+        modelEntry->net = std::move(loadedNet);
+        g_model_cache[model_path] = modelEntry;
       }
     }
 
@@ -322,12 +338,18 @@ void DnnEngine::runInference(const cv::Mat &image,
       cv::cvtColor(inputImg, inputImg, cv::COLOR_BGRA2BGR);
     }
 
-    cv::Mat blob =
-        cv::dnn::blobFromImage(inputImg, 1.0 / 255.0, cv::Size(224, 224),
-                               cv::Scalar(0.485, 0.456, 0.406), true, false);
+    cv::Scalar mean = (task == "classify") ? cv::Scalar(123.675, 116.28, 103.53)
+                                           : cv::Scalar(0.0, 0.0, 0.0);
 
-    net.setInput(blob);
-    cv::Mat prob = net.forward();
+    cv::Mat blob = cv::dnn::blobFromImage(
+        inputImg, 1.0 / 255.0, cv::Size(224, 224), mean, true, false);
+
+    cv::Mat prob;
+    {
+      std::lock_guard<std::mutex> netLock(modelEntry->mutex);
+      modelEntry->net.setInput(blob);
+      prob = modelEntry->net.forward().clone();
+    }
 
     if (task == "classify") {
       decodeClassification(prob, metrics, top_k);
