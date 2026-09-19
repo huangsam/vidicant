@@ -4,7 +4,6 @@
 #include "vidicant/core/image_ops.hpp"
 #include <algorithm>
 #include <cmath>
-#include <numeric>
 #include <opencv2/imgproc.hpp>
 
 namespace vidicant::core {

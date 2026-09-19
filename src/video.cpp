@@ -6,10 +6,9 @@
 #include "vidicant/core/video_ops.hpp"
 #include <algorithm>
 #include <cmath>
-#include <iostream>
-#include <numeric>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
+#include <sstream>
 #include <vector>
 
 namespace vidicant {

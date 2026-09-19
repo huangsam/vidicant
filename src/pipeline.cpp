@@ -8,11 +8,8 @@
 #include "vidicant/video.hpp"
 #include <algorithm>
 #include <filesystem>
-#include <iostream>
 #include <nlohmann/json.hpp>
-#include <opencv2/core.hpp>
 #include <string>
-#include <vector>
 
 namespace vidicant {
 
