@@ -21,11 +21,20 @@ zig fmt build.zig
 
 ## Rules & Constraints
 
-- **Python package (`vidicant/`)**: Pure stdlib only (`ctypes`, `json`, `pathlib`, `urllib`). No external runtime dependencies.
+- **Python package (`vidicant/`)**:
+    - Pure stdlib only (`ctypes`, `json`, `pathlib`, `urllib`).
+    - Zero external runtime dependencies.
 - **C-ABI (`src/vidicant_c_api.cpp`, `include/vidicant/c_api.h`)**: `extern "C"` JSON string APIs; always pair allocations with `vidicant_free_string`.
-- **C++ Core**: Modern C++17 (`const std::filesystem::path &`, `std::optional<T>`, `ImageAnalysisOptions`, `VideoAnalysisOptions`, `#include "vidicant/vidicant.hpp"`).
-- **Build (`build.zig`)**: Single source of truth for native builds; keep C++17 compatibility.
-- **Platform Scope**: macOS (Apple Silicon & Intel) and Linux (x86_64 & aarch64), with WSL2 recommended for Windows development.
+- **C++ Core**: Modern C++17 (strictly no C++20).
+    - Paths: `const std::filesystem::path &`.
+    - Fallible results: `std::optional<T>`.
+    - Extensible APIs: options structs (`*Options`).
+    - Public facade: `#include "vidicant/vidicant.hpp"`.
+- **Includes**: Strict IWYU.
+    - No unused headers (e.g. avoid unused `<iostream>`).
+    - No heavy umbrella imports (e.g. prefer `<opencv2/core.hpp>` over `<opencv2/opencv.hpp>`).
+- **Build (`build.zig`)**: Single source of truth for native builds (no CMake/Makefiles). All build configurations belong in `build.zig`.
+- **Portability**: Cross-platform C++17/OpenCV (macOS arm64/x86_64, Linux x86_64/aarch64). Avoid platform-specific APIs (no direct Win32, Cocoa, or Metal calls).
 - **Verification**: Always verify changes with `zig build test` and `PYTHONPATH=. python3 e2e.py`.
 
 ## References
