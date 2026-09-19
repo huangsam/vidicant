@@ -314,18 +314,20 @@ TEST(VideoGlobalTest, GetVideoMetricsReal) {
   EXPECT_GE(m.flicker_score, 0.0);
   EXPECT_GE(m.best_thumbnail_frame, 0);
   EXPECT_GT(m.temporal_brightness_curve.size(), 0U);
-  EXPECT_GE(m.shot_length_stats.count, 1);
+  EXPECT_EQ(m.shot_length_stats.count,
+            static_cast<int>(m.scene_changes.size()) + 1);
 }
 
 TEST(VideoGlobalTest, GetVideoMetricsWithOptions) {
   VideoAnalysisOptions opts;
   opts.scene_change_threshold = 25.0;
-  opts.dominant_colors_k = 3;
+  opts.dominant_colors_k = 4;
   auto mOpt = vidicant::getVideoMetrics("examples/sample.mp4", opts);
   ASSERT_TRUE(mOpt.has_value());
   EXPECT_GT(mOpt->frame_count, 0);
   EXPECT_GT(mOpt->fps, 0.0);
   EXPECT_GE(mOpt->shot_length_stats.count, 1);
+  EXPECT_EQ(mOpt->dominant_colors.size(), 4U);
 }
 
 TEST(VideoGlobalTest, GetVideoMotionScoreWithStride) {
@@ -372,4 +374,10 @@ TEST(VideoGlobalTest, GetVideoMetricsWithStrideAndExportScenes) {
   // Clean up
   std::error_code ec;
   std::filesystem::remove_all(tempDir, ec);
+}
+
+TEST(VideoGlobalTest, VideoFileDetector) {
+  EXPECT_TRUE(vidicant::isVideoFile("examples/sample.mp4"));
+  EXPECT_FALSE(vidicant::isVideoFile("examples/sample.jpg"));
+  EXPECT_FALSE(vidicant::isVideoFile("nonexistent.mp4"));
 }

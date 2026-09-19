@@ -77,3 +77,9 @@ TEST(DedupeTest, ClusterDuplicateHashesGroupings) {
   ASSERT_TRUE(j["duplicate_clusters"].is_array());
   EXPECT_EQ(j["duplicate_clusters"].size(), 2);
 }
+
+TEST(DedupeTest, DedupeDirectoryReal) {
+  auto res = dedupeDirectory("examples", 10, true);
+  EXPECT_GE(res.total_images, 1);
+  EXPECT_GE(res.clusters.size(), 0U);
+}

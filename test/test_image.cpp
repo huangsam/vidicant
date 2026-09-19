@@ -563,3 +563,9 @@ TEST(ImageGlobalTest, GetImageMetricsWithOptions) {
   EXPECT_GT(mOpt->height, 0);
   EXPECT_EQ(mOpt->dominant_colors.size(), 4U);
 }
+
+TEST(ImageGlobalTest, ImageFileDetector) {
+  EXPECT_TRUE(vidicant::isImageFile("examples/sample.jpg"));
+  EXPECT_FALSE(vidicant::isImageFile("examples/sample.mp4"));
+  EXPECT_FALSE(vidicant::isImageFile("nonexistent.jpg"));
+}
