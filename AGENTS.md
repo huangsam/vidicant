@@ -17,6 +17,8 @@ ruff check . && ruff format .
 find src test include \( -name '*.cpp' -o -name '*.hpp' -o -name '*.h' \) | xargs clang-format -i
 # Zig format
 zig fmt build.zig
+# Generate compile_commands.json for clangd / IDEs
+python3 scripts/generate_compile_commands.py
 ```
 
 ## Rules & Constraints
