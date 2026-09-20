@@ -184,31 +184,29 @@ func main() {
 
 	start := time.Now()
 	for workerID := 1; workerID <= concurrency; workerID++ {
-		wg.Add(1)
-		go func(id int) {
-			defer wg.Done()
+		wg.Go(func() {
 			for task := range tasks {
 				if filepath.Ext(task) == ".mp4" {
 					vm, err := ProcessVideo(task)
 					if err != nil {
-						results <- fmt.Sprintf("Worker %d: video error: %v", id, err)
+						results <- fmt.Sprintf("Worker %d: video error: %v", workerID, err)
 					} else {
-						results <- fmt.Sprintf("Worker %d: [Video] %s (%.1fs, motion: %.2f)", id, filepath.Base(task), vm.DurationSeconds, vm.MotionScore)
+						results <- fmt.Sprintf("Worker %d: [Video] %s (%.1fs, motion: %.2f)", workerID, filepath.Base(task), vm.DurationSeconds, vm.MotionScore)
 					}
 				} else {
 					im, err := ProcessImage(task)
 					if err != nil {
-						results <- fmt.Sprintf("Worker %d: image error: %v", id, err)
+						results <- fmt.Sprintf("Worker %d: image error: %v", workerID, err)
 					} else {
-						results <- fmt.Sprintf("Worker %d: [Image] %s (%dx%d, blur: %.1f)", id, filepath.Base(task), im.Width, im.Height, im.BlurScore)
+						results <- fmt.Sprintf("Worker %d: [Image] %s (%dx%d, blur: %.1f)", workerID, filepath.Base(task), im.Width, im.Height, im.BlurScore)
 					}
 				}
 			}
-		}(workerID)
+		})
 	}
 
 	// Dispatch tasks
-	for i := 0; i < totalTasks; i++ {
+	for i := range totalTasks {
 		if i%2 == 0 {
 			tasks <- sampleImg
 		} else {
