@@ -154,10 +154,16 @@ ShotLengthStats calculateShotLengthStats(const std::vector<int> &sceneChanges,
   std::vector<double> lengths;
   int prev = 0;
   for (int changeFrame : sceneChanges) {
-    lengths.push_back(static_cast<double>(changeFrame - prev));
-    prev = changeFrame;
+    if (changeFrame > prev) {
+      lengths.push_back(static_cast<double>(changeFrame - prev));
+      prev = changeFrame;
+    }
   }
-  lengths.push_back(static_cast<double>(totalFrames - prev));
+  if (totalFrames > prev) {
+    lengths.push_back(static_cast<double>(totalFrames - prev));
+  } else if (lengths.empty() && totalFrames > 0) {
+    lengths.push_back(static_cast<double>(totalFrames));
+  }
 
   if (lengths.empty())
     return {0.0, 0.0, 0.0, 0.0, 0};

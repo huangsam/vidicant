@@ -56,7 +56,7 @@ public:
   virtual bool seekFrame(int /*frameIndex*/) { return false; }
 
   // Grabs the next frame without decoding (for efficient skipping).
-  virtual bool grabFrame() { return false; }
+  virtual bool grabFrame() { return !readFrame().empty(); }
 
   // Retrieves a raw VideoCapture property by ID (default: -1.0 if unsupported).
   virtual double getProperty(int /*propId*/) { return -1.0; }

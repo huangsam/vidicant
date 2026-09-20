@@ -16,14 +16,54 @@
 
 namespace vidicant::dnn {
 
-struct CachedModel {
-  cv::dnn::Net net;
-  std::mutex mutex;
+class NetPool {
+public:
+  explicit NetPool(std::string path) : path_(std::move(path)) {}
+
+  struct NetLease {
+    NetPool &pool;
+    cv::dnn::Net net;
+    bool valid{true};
+
+    ~NetLease() {
+      if (valid && !net.empty()) {
+        pool.release(std::move(net));
+      }
+    }
+  };
+
+  std::unique_ptr<NetLease> acquire() {
+    cv::dnn::Net net;
+    {
+      std::lock_guard<std::mutex> lock(mutex_);
+      if (!idle_nets_.empty()) {
+        net = std::move(idle_nets_.back());
+        idle_nets_.pop_back();
+      }
+    }
+    if (net.empty()) {
+      net = cv::dnn::readNetFromONNX(path_);
+      if (net.empty()) {
+        return nullptr;
+      }
+      net.setPreferableBackend(cv::dnn::DNN_BACKEND_DEFAULT);
+    }
+    return std::make_unique<NetLease>(NetLease{*this, std::move(net), true});
+  }
+
+  void release(cv::dnn::Net &&net) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    idle_nets_.push_back(std::move(net));
+  }
+
+private:
+  std::string path_;
+  std::mutex mutex_;
+  std::vector<cv::dnn::Net> idle_nets_;
 };
 
 static std::mutex g_cache_mutex;
-static std::unordered_map<std::string, std::shared_ptr<CachedModel>>
-    g_model_cache;
+static std::unordered_map<std::string, std::shared_ptr<NetPool>> g_model_pools;
 
 static void decodeClassification(const cv::Mat &prob, ImageMetrics &metrics,
                                  int top_k) {
@@ -211,15 +251,19 @@ static void decodeDetection(const cv::Mat &prob, int img_width, int img_height,
         }
 
         if (conf >= conf_threshold) {
+          w = std::max(0.0f, w);
+          h = std::max(0.0f, h);
           if (w <= 1.0f && h <= 1.0f && (x + w) <= 1.01f && (y + h) <= 1.01f) {
             x *= img_width;
             y *= img_height;
             w *= img_width;
             h *= img_height;
           }
-          candidate_boxes.emplace_back(x, y, w, h);
-          candidate_scores.push_back(conf);
-          candidate_classes.push_back(class_id);
+          if (w > 0.0f && h > 0.0f) {
+            candidate_boxes.emplace_back(x, y, w, h);
+            candidate_scores.push_back(conf);
+            candidate_classes.push_back(class_id);
+          }
         }
       }
     }
@@ -312,23 +356,22 @@ void DnnEngine::runInference(const cv::Mat &image,
   }
 
   try {
-    std::shared_ptr<CachedModel> modelEntry;
+    std::shared_ptr<NetPool> pool;
     {
       std::lock_guard<std::mutex> lock(g_cache_mutex);
-      auto it = g_model_cache.find(model_path);
-      if (it != g_model_cache.end()) {
-        modelEntry = it->second;
+      auto it = g_model_pools.find(model_path);
+      if (it != g_model_pools.end()) {
+        pool = it->second;
       } else {
-        cv::dnn::Net loadedNet = cv::dnn::readNetFromONNX(model_path);
-        if (loadedNet.empty()) {
-          metrics.ml_evaluated = false;
-          return;
-        }
-        loadedNet.setPreferableBackend(cv::dnn::DNN_BACKEND_DEFAULT);
-        modelEntry = std::make_shared<CachedModel>();
-        modelEntry->net = std::move(loadedNet);
-        g_model_cache[model_path] = modelEntry;
+        pool = std::make_shared<NetPool>(model_path);
+        g_model_pools[model_path] = pool;
       }
+    }
+
+    auto lease = pool->acquire();
+    if (!lease || lease->net.empty()) {
+      metrics.ml_evaluated = false;
+      return;
     }
 
     cv::Mat inputImg = image;
@@ -344,12 +387,8 @@ void DnnEngine::runInference(const cv::Mat &image,
     cv::Mat blob = cv::dnn::blobFromImage(
         inputImg, 1.0 / 255.0, cv::Size(224, 224), mean, true, false);
 
-    cv::Mat prob;
-    {
-      std::lock_guard<std::mutex> netLock(modelEntry->mutex);
-      modelEntry->net.setInput(blob);
-      prob = modelEntry->net.forward().clone();
-    }
+    lease->net.setInput(blob);
+    cv::Mat prob = lease->net.forward().clone();
 
     if (task == "classify") {
       decodeClassification(prob, metrics, top_k);

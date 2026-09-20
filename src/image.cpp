@@ -6,6 +6,7 @@
 #include "vidicant/core/image_ops.hpp"
 #include "vidicant/dnn/dnn_engine.hpp"
 #include <algorithm>
+#include <atomic>
 #include <future>
 #include <iostream>
 #include <opencv2/imgcodecs.hpp>
@@ -477,34 +478,41 @@ getBatchImageMetrics(const std::vector<std::filesystem::path> &filenames,
 std::vector<ImageMetrics>
 getBatchImageMetrics(const std::vector<std::filesystem::path> &filenames,
                      const ImageAnalysisOptions &options) {
-  const size_t maxConcurrency =
-      std::max(1u, std::thread::hardware_concurrency());
+  if (filenames.empty())
+    return {};
+
+  const size_t numThreads = std::min(
+      filenames.size(),
+      static_cast<size_t>(std::max(1u, std::thread::hardware_concurrency())));
 
   std::vector<ImageMetrics> results(filenames.size());
+  std::atomic<size_t> nextIndex{0};
 
-  for (size_t start = 0; start < filenames.size(); start += maxConcurrency) {
-    const size_t end = std::min(start + maxConcurrency, filenames.size());
-
-    std::vector<std::future<ImageMetrics>> futures;
-    futures.reserve(end - start);
-    for (size_t i = start; i < end; ++i) {
-      const std::filesystem::path fn = filenames[i];
-      futures.push_back(std::async(std::launch::async, [fn, options]() {
+  std::vector<std::future<void>> workers;
+  workers.reserve(numThreads);
+  for (size_t t = 0; t < numThreads; ++t) {
+    workers.push_back(std::async(std::launch::async, [&]() {
+      while (true) {
+        size_t i = nextIndex.fetch_add(1);
+        if (i >= filenames.size())
+          break;
+        const auto &fn = filenames[i];
         auto loader = std::make_unique<OpenCVImageLoader>();
         ImageHandler handler(std::move(loader));
         auto opt = handler.getMetrics(fn, options);
         if (opt.has_value()) {
-          return *opt;
+          results[i] = *opt;
+        } else {
+          ImageMetrics m{};
+          m.width = -1;
+          m.height = -1;
+          results[i] = m;
         }
-        ImageMetrics m{};
-        m.width = -1;
-        m.height = -1;
-        return m;
-      }));
-    }
-    for (size_t i = 0; i < futures.size(); ++i) {
-      results[start + i] = futures[i].get();
-    }
+      }
+    }));
+  }
+  for (auto &w : workers) {
+    w.get();
   }
   return results;
 }

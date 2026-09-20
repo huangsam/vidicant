@@ -6,6 +6,7 @@
 #include "vidicant/image.hpp"
 #include "vidicant/io/file_detector.hpp"
 #include <algorithm>
+#include <atomic>
 #include <bitset>
 #include <future>
 #include <map>
@@ -118,25 +119,32 @@ DedupeResult dedupeDirectory(const std::filesystem::path &dir, int threshold,
 
   std::sort(imageFiles.begin(), imageFiles.end());
 
-  const size_t maxConcurrency =
-      std::max(1u, std::thread::hardware_concurrency());
+  if (imageFiles.empty())
+    return clusterDuplicateHashes({}, threshold);
+
+  const size_t numThreads = std::min(
+      imageFiles.size(),
+      static_cast<size_t>(std::max(1u, std::thread::hardware_concurrency())));
 
   std::vector<ImageHashItem> hashes(imageFiles.size());
-  for (size_t start = 0; start < imageFiles.size(); start += maxConcurrency) {
-    const size_t end = std::min(start + maxConcurrency, imageFiles.size());
-    std::vector<std::future<ImageHashItem>> futures;
-    futures.reserve(end - start);
-    for (size_t i = start; i < end; ++i) {
-      const std::string path = imageFiles[i];
-      futures.push_back(
-          std::async(std::launch::async, [path]() -> ImageHashItem {
-            uint64_t h = vidicant::getImagePerceptualHash(path);
-            return {path, h};
-          }));
-    }
-    for (size_t i = 0; i < futures.size(); ++i) {
-      hashes[start + i] = futures[i].get();
-    }
+  std::atomic<size_t> nextIndex{0};
+
+  std::vector<std::future<void>> workers;
+  workers.reserve(numThreads);
+  for (size_t t = 0; t < numThreads; ++t) {
+    workers.push_back(std::async(std::launch::async, [&]() {
+      while (true) {
+        size_t i = nextIndex.fetch_add(1);
+        if (i >= imageFiles.size())
+          break;
+        const auto &path = imageFiles[i];
+        uint64_t h = vidicant::getImagePerceptualHash(path);
+        hashes[i] = {path, h};
+      }
+    }));
+  }
+  for (auto &w : workers) {
+    w.get();
   }
 
   return clusterDuplicateHashes(hashes, threshold);

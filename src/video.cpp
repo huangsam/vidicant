@@ -218,11 +218,8 @@ std::vector<int> VideoHandler::detectSceneChanges(double threshold,
     if (stride > 1) {
       if (stride <= 10 || !loader_->seekFrame(frameIndex)) {
         for (int i = 0; i < stride - 1; ++i) {
-          if (!loader_->grabFrame()) {
-            cv::Mat skipped = loader_->readFrame();
-            if (skipped.empty())
-              break;
-          }
+          if (!loader_->grabFrame())
+            break;
         }
       }
     }
@@ -238,8 +235,7 @@ std::vector<int> VideoHandler::detectSceneChanges(double threshold,
       cv::cvtColor(currFrame, grayCurr, cv::COLOR_BGR2GRAY);
 
     double motion = core::calculateFrameMotion(prevGray, grayCurr);
-    if (motion > threshold &&
-        (frameIndex - lastSceneFrame >= kSceneDebounce * stride)) {
+    if (motion > threshold && (frameIndex - lastSceneFrame >= kSceneDebounce)) {
       sceneChanges.push_back(frameIndex);
       lastSceneFrame = frameIndex;
     }
@@ -403,11 +399,8 @@ int VideoHandler::getBestThumbnailIndex() {
     if (stepSize > 1) {
       if (!loader_->seekFrame(frameIndex)) {
         for (int i = 0; i < stepSize - 1; ++i) {
-          if (!loader_->grabFrame()) {
-            cv::Mat skipped = loader_->readFrame();
-            if (skipped.empty())
-              break;
-          }
+          if (!loader_->grabFrame())
+            break;
         }
       }
     }
@@ -473,8 +466,6 @@ VideoHandler::getMetrics(const VideoAnalysisOptions &options) {
 
   auto frameCountOpt = getFrameCount();
   int totalFrames = frameCountOpt.value_or(0);
-  if (totalFrames <= 0)
-    return std::nullopt;
 
   VideoMetrics m{};
   m.frame_count = totalFrames;
@@ -509,14 +500,40 @@ VideoHandler::getMetrics(const VideoAnalysisOptions &options) {
     m.height = firstFrame.rows;
   m.is_grayscale = (firstFrame.channels() == 1);
 
+  auto makeOptFlowFrame = [](const cv::Mat &frame) -> cv::Mat {
+    cv::Mat gray;
+    if (frame.channels() == 1)
+      gray = frame;
+    else
+      cv::cvtColor(frame, gray, cv::COLOR_BGR2GRAY);
+
+    if (gray.cols > 320 || gray.rows > 320) {
+      double scale = 320.0 / std::max(gray.cols, gray.rows);
+      cv::Mat small;
+      cv::resize(gray, small, cv::Size(), scale, scale, cv::INTER_AREA);
+      return small;
+    }
+    return gray.clone();
+  };
+
+  auto makeDominantColorFrame = [](const cv::Mat &frame) -> cv::Mat {
+    if (frame.cols > 64 || frame.rows > 64) {
+      cv::Mat small;
+      cv::resize(frame, small, cv::Size(64, 64), 0, 0, cv::INTER_AREA);
+      return small;
+    }
+    return frame.clone();
+  };
+
   // Optical flow collection (first few frames)
   std::vector<cv::Mat> optFlowFrames;
-  optFlowFrames.push_back(firstFrame.clone());
+  optFlowFrames.push_back(makeOptFlowFrame(firstFrame));
 
   // Dominant color sampling: sample up to 5 frames throughout video
   std::vector<cv::Mat> dominantColorFrames;
-  dominantColorFrames.push_back(firstFrame.clone());
-  int dominantColorInterval = std::max(1, totalFrames / 5);
+  dominantColorFrames.push_back(makeDominantColorFrame(firstFrame));
+  int dominantColorInterval =
+      (totalFrames > 0) ? std::max(1, totalFrames / 5) : 30;
 
   // Brightness curve & color consistency
   std::vector<double> brightnesses;
@@ -525,11 +542,15 @@ VideoHandler::getMetrics(const VideoAnalysisOptions &options) {
     return (f.channels() == 1) ? mean[0] : (mean[0] + mean[1] + mean[2]) / 3.0;
   };
   brightnesses.push_back(getFrameBrightness(firstFrame));
+  int maxBrightness = options.max_brightness_frames > 0
+                          ? options.max_brightness_frames
+                          : core::kMaxBrightnessCurveFrames;
 
   // Best thumbnail
   int bestThumbnailIndex = 0;
   double bestThumbnailScore = -1.0;
-  int thumbnailStepSize = std::max(1, totalFrames / 20);
+  int thumbnailStepSize =
+      (totalFrames > 0) ? std::max(1, totalFrames / 20) : 10;
   core::evaluateThumbnailFrame(firstFrame, 0, bestThumbnailScore,
                                bestThumbnailIndex);
 
@@ -562,11 +583,8 @@ VideoHandler::getMetrics(const VideoAnalysisOptions &options) {
       bool ok = true;
       for (int i = 0; i < effective_stride - 1; ++i) {
         if (!loader_->grabFrame()) {
-          cv::Mat skipped = loader_->readFrame();
-          if (skipped.empty()) {
-            ok = false;
-            break;
-          }
+          ok = false;
+          break;
         }
       }
       if (!ok)
@@ -579,18 +597,17 @@ VideoHandler::getMetrics(const VideoAnalysisOptions &options) {
 
     // Optical flow: first kOpticalFlowMaxPairs frames
     if (static_cast<int>(optFlowFrames.size()) <= core::kOpticalFlowMaxPairs) {
-      optFlowFrames.push_back(currFrame.clone());
+      optFlowFrames.push_back(makeOptFlowFrame(currFrame));
     }
 
     // Dominant colors: sample up to 5 frames
     if (dominantColorFrames.size() < 5 &&
         frameIndex % dominantColorInterval == 0) {
-      dominantColorFrames.push_back(currFrame.clone());
+      dominantColorFrames.push_back(makeDominantColorFrame(currFrame));
     }
 
-    // Brightness curve: up to kMaxBrightnessCurveFrames
-    if (static_cast<int>(brightnesses.size()) <
-        core::kMaxBrightnessCurveFrames) {
+    // Brightness curve: up to max_brightness_frames
+    if (static_cast<int>(brightnesses.size()) < maxBrightness) {
       brightnesses.push_back(getFrameBrightness(currFrame));
     }
 
@@ -609,13 +626,14 @@ VideoHandler::getMetrics(const VideoAnalysisOptions &options) {
         cv::cvtColor(currFrame, currGray, cv::COLOR_BGR2GRAY);
 
       double motion = core::calculateFrameMotion(prevGray, currGray);
-      if (motionPairs < options.max_motion_frames) {
+      if (options.max_motion_frames <= 0 ||
+          motionPairs < options.max_motion_frames) {
         totalMotion += motion;
         motionPairs++;
       }
 
       if (motion > options.scene_change_threshold &&
-          (frameIndex - lastSceneFrame >= kSceneDebounce * effective_stride)) {
+          (frameIndex - lastSceneFrame >= kSceneDebounce)) {
         sceneChanges.push_back(frameIndex);
         lastSceneFrame = frameIndex;
 
@@ -649,6 +667,14 @@ VideoHandler::getMetrics(const VideoAnalysisOptions &options) {
     frameIndex += effective_stride;
   }
 
+  int actualFrames = frameIndex;
+  if (m.frame_count <= 0) {
+    m.frame_count = actualFrames;
+  }
+  if (m.duration <= 0.0 && m.fps > 0.0) {
+    m.duration = static_cast<double>(m.frame_count) / m.fps;
+  }
+
   // Populate aggregated metrics
   m.temporal_brightness_curve = brightnesses;
   if (!brightnesses.empty()) {
@@ -666,8 +692,9 @@ VideoHandler::getMetrics(const VideoAnalysisOptions &options) {
 
   m.scene_changes = sceneChanges;
   if (!m.is_grayscale) {
+    int totalForStats = std::max(m.frame_count, actualFrames);
     m.shot_length_stats =
-        core::calculateShotLengthStats(sceneChanges, m.frame_count);
+        core::calculateShotLengthStats(sceneChanges, totalForStats);
   }
 
   return m;

@@ -381,3 +381,25 @@ TEST(VideoGlobalTest, VideoFileDetector) {
   EXPECT_FALSE(vidicant::isVideoFile("examples/sample.jpg"));
   EXPECT_FALSE(vidicant::isVideoFile("nonexistent.mp4"));
 }
+
+TEST(VideoGlobalTest, ShotLengthStatsEdgeCases) {
+  // Case 1: totalFrames is smaller than the last scene cut
+  std::vector<int> sceneChanges = {30, 60, 90};
+  auto stats = vidicant::core::calculateShotLengthStats(sceneChanges, 80);
+  EXPECT_GT(stats.min, 0.0);
+  EXPECT_GT(stats.mean, 0.0);
+  EXPECT_GE(stats.stddev, 0.0);
+  EXPECT_EQ(stats.count, 3); // shots: 30, 30, 30
+
+  // Case 2: empty scene changes
+  auto emptyStats = vidicant::core::calculateShotLengthStats({}, 100);
+  EXPECT_EQ(emptyStats.count, 1);
+  EXPECT_DOUBLE_EQ(emptyStats.mean, 100.0);
+  EXPECT_DOUBLE_EQ(emptyStats.min, 100.0);
+  EXPECT_DOUBLE_EQ(emptyStats.max, 100.0);
+
+  // Case 3: totalFrames is 0
+  auto zeroStats = vidicant::core::calculateShotLengthStats({}, 0);
+  EXPECT_EQ(zeroStats.count, 0);
+  EXPECT_DOUBLE_EQ(zeroStats.mean, 0.0);
+}
