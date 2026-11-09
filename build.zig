@@ -212,7 +212,7 @@ pub fn build(b: *std.Build) void {
     // Auto-discover test files in test/ directory
     var test_files: std.ArrayList([]const u8) = .empty;
     const io = b.graph.io;
-    var test_dir = b.build_root.handle.openDir(io, "test", .{ .iterate = true }) catch null;
+    var test_dir = b.root.openDir(io, "test", .{ .iterate = true }) catch null;
     if (test_dir) |*dir| {
         defer dir.close(io);
         var iter = dir.iterate();
