@@ -59,18 +59,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libopencv-dev nlohmann-json3-dev libgtest-dev libgmock-dev
 
-      - name: Get Homebrew cache path
-        if: runner.os == 'macOS'
-        id: homebrew-cache-path
-        run: echo "path=$(brew --cache)" >> "$GITHUB_OUTPUT"
-
-      - name: Cache Homebrew downloads
-        if: runner.os == 'macOS'
-        uses: actions/cache@v4
-        with:
-          path: ${{ steps.homebrew-cache-path.outputs.path }}
-          key: ${{ runner.os }}-${{ runner.arch }}-homebrew-opencv-nlohmann-json-googletest-v1
-
       - name: Install Dependencies (macOS)
         if: runner.os == 'macOS'
         run: |
